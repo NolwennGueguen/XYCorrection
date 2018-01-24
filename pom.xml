@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>firstproject</groupId>
+    <artifactId>firstproject_test</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <micromanager.version>
+            2.0.0.2
+        </micromanager.version>
+
+        <opencv.version>
+            3.2.0-0
+        </opencv.version>
+    </properties>
+
+    <dependencies>
+        <!-- dependencies already present in Micro Manager -->
+
+        <dependency>
+            <groupId>org.micromanager</groupId>
+            <artifactId>MMJ_</artifactId>
+            <version>${micromanager.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.micromanager</groupId>
+            <artifactId>MMCoreJ</artifactId>
+            <version>${micromanager.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.micromanager</groupId>
+            <artifactId>MMAcqEngine</artifactId>
+            <version>${micromanager.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openpnp</groupId>
+            <artifactId>opencv</artifactId>
+            <version>${opencv.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.0.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>net.imagej</groupId>
+            <artifactId>ij</artifactId>
+            <version>1.51r</version>
+        </dependency>
+
+        <!-- dependency for opencv-contrib (search another), required for access to SURF/SIFT algorithms -->
+        <dependency>
+            <groupId>org.bytedeco.javacpp-presets</groupId>
+            <artifactId>opencv</artifactId>
+            <version>3.0.0-1.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bytedeco.javacpp</groupId>
+            <artifactId>opencv</artifactId>
+        </dependency>
+
+        <!-- Probably not required -->
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>javacv-platform</artifactId>
+            <version>1.4</version>
+        </dependency>
+
+    </dependencies>
+
+<!-- Not sure to use it
+    <repositories>
+        <repository>
+            <id>in-project</id>
+            <name>In Project Repo</name>
+            <url>file://${project.basedir}/repo</url>
+        </repository>
+    </repositories>
+-->
+</project>
