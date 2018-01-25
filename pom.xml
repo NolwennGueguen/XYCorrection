@@ -4,14 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>firstproject</groupId>
-    <artifactId>firstproject_test</artifactId>
+    <groupId>MMStabilisation</groupId>
+    <artifactId>XYCorrection</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <micromanager.version>
-            2.0.0.2
-        </micromanager.version>
+        <!--<micromanager.version>-->
+            <!--2.0.0.2-->
+        <!--</micromanager.version>-->
 
         <opencv.version>
             3.2.0-0
@@ -21,23 +21,23 @@
     <dependencies>
         <!-- dependencies already present in Micro Manager -->
 
-        <dependency>
-            <groupId>org.micromanager</groupId>
-            <artifactId>MMJ_</artifactId>
-            <version>${micromanager.version}</version>
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.micromanager</groupId>-->
+            <!--<artifactId>MMJ_</artifactId>-->
+            <!--<version>${micromanager.version}</version>-->
+        <!--</dependency>-->
 
-        <dependency>
-            <groupId>org.micromanager</groupId>
-            <artifactId>MMCoreJ</artifactId>
-            <version>${micromanager.version}</version>
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.micromanager</groupId>-->
+            <!--<artifactId>MMCoreJ</artifactId>-->
+            <!--<version>${micromanager.version}</version>-->
+        <!--</dependency>-->
 
-        <dependency>
-            <groupId>org.micromanager</groupId>
-            <artifactId>MMAcqEngine</artifactId>
-            <version>${micromanager.version}</version>
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.micromanager</groupId>-->
+            <!--<artifactId>MMAcqEngine</artifactId>-->
+            <!--<version>${micromanager.version}</version>-->
+        <!--</dependency>-->
 
         <dependency>
             <groupId>org.openpnp</groupId>
@@ -45,18 +45,45 @@
             <version>${opencv.version}</version>
         </dependency>
 
+        <!--<dependency>-->
+            <!--<groupId>junit</groupId>-->
+            <!--<artifactId>junit</artifactId>-->
+            <!--<version>5.0</version>-->
+        <!--</dependency>-->
+
+        <!-- Block for unit tests -->
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.0</version>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.0.1</version>
         </dependency>
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <version>5.0.0</version>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.0.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
+            <version>4.12.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <version>1.0.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-runner</artifactId>
+            <version>1.0.1</version>
+            <scope>test</scope>
         </dependency>
 
+        <!-- ImageJ -->
         <dependency>
             <groupId>net.imagej</groupId>
             <artifactId>ij</artifactId>
@@ -64,16 +91,18 @@
         </dependency>
 
         <!-- dependency for opencv-contrib (search another), required for access to SURF/SIFT algorithms -->
-        <dependency>
-            <groupId>org.bytedeco.javacpp-presets</groupId>
-            <artifactId>opencv</artifactId>
-            <version>3.0.0-1.0</version>
-        </dependency>
 
-        <dependency>
-            <groupId>org.bytedeco.javacpp</groupId>
-            <artifactId>opencv</artifactId>
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.bytedeco.javacpp-presets</groupId>-->
+            <!--<artifactId>opencv</artifactId>-->
+            <!--<version>3.0.0-1.0</version>-->
+        <!--</dependency>-->
+
+        <!--<dependency>-->
+            <!--<groupId>org.bytedeco.javacpp</groupId>-->
+            <!--<artifactId>opencv</artifactId>-->
+            <!--<version>3.1.0</version>-->
+        <!--</dependency>-->
 
         <!-- Probably not required -->
         <dependency>
@@ -82,8 +111,34 @@
             <version>1.4</version>
         </dependency>
 
+        <dependency>
+            <groupId>io.github.joheras</groupId>
+            <artifactId>IJ-OpenCV</artifactId>
+            <version>1.0</version>
+        </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.19.1</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.junit.platform</groupId>
+                        <artifactId>junit-platform-surefire-provider</artifactId>
+                        <version>1.0.1</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.junit.jupiter</groupId>
+                        <artifactId>junit-jupiter-engine</artifactId>
+                        <version>5.0.1</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+        </plugins>
+    </build>
 <!-- Not sure to use it
     <repositories>
         <repository>
