@@ -9,6 +9,7 @@ import org.opencv.features2d.FeatureDetector;
 import org.opencv.features2d.Features2d;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.utils.Converters;
 
 import javax.swing.*;
 import java.awt.*;
@@ -16,6 +17,7 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 
 import static org.opencv.features2d.Features2d.NOT_DRAW_SINGLE_POINTS;
@@ -149,18 +151,30 @@ public class XYCorrection {
         img2_pt.fromList(img2_ptArray);
         // Homography test and display
         Mat outputMask = new Mat();
-        Mat Homog = Calib3d.findHomography(img1_pt, img2_pt, Calib3d.RANSAC, 15, outputMask,2000, 0.995);
-        System.out.println(printMatContent(Homog));
+        Mat homog = Calib3d.findHomography(img1_pt, img2_pt, Calib3d.LMEDS, 15, outputMask,2000, 0.995);
+        System.out.println(printMatContent(homog));
 //        displayImageIJ("Find Homography",Homog);
 //        Imgcodecs.imwrite(pathOfFiles+"/ResultatsTests/Homography"+detectorAlg+"_"+descriptorExtract+"_"+descriptorMatch+".tif", Homog);
 //
-//        ArrayList<Point> img1_corners = new ArrayList<Point>(4);
-//        img1_corners[0] = opencv_core.CvPoint(0,0);
+        Point[] img1_corners = new Point[4];
+        img1_corners[0] = new Point(0,0);
+        img1_corners[1] = new Point(img1.cols(),0);
+        img1_corners[2] = new Point(img1.cols(), img1.rows());
+        img1_corners[3] = new Point(0, img1.rows());
 
-//        Mat ouput = img1 *Homog;
+        Point[] img1_target_corners = new Point[4];
+        img1_target_corners[0] = new Point(0,0);
+        img1_target_corners[1] = new Point(img1.cols(),0);
+        img1_target_corners[2] = new Point(img1.cols(), img1.rows());
+        img1_target_corners[3] = new Point(0, img1.rows());
+
+        Mat trans = Imgproc.getPerspectiveTransform(Converters.vector_Point2f_to_Mat(Arrays.asList(img1_corners)), Converters.vector_Point2f_to_Mat(Arrays.asList(img1_target_corners)));
         Mat output = new Mat();
-        Imgproc.warpPerspective(img1, output, Homog, new Size(img1.rows(),img1.cols()));
-        System.out.println(output.channels());
+        Imgproc.warpPerspective(img1, output, trans, new Size(img1.rows(), img1.cols()));
+
+
+        //Imgproc.warpPerspective(img1, output, homog, new Size(img1.rows(),img1.cols()));
+        System.out.println(output.type());
         displayImageIJ("Ouptut", output);
 
         /* End of method */
@@ -189,8 +203,6 @@ public class XYCorrection {
         m.get(0, 0 ,b);
         BufferedImage img = new BufferedImage(m.cols(), m.rows(), type);
         img.getRaster().setDataElements(0, 0, m.cols(), m.rows(), b);
-//        final byte[] targetPixels = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
-//        System.arraycopy(b, 0, targetPixels, 0, b.length);
         return img;
     }
 
@@ -201,8 +213,6 @@ public class XYCorrection {
         m.get(0, 0 ,b);
         BufferedImage img = new BufferedImage(m.cols(), m.rows(), type);
         img.getRaster().setDataElements(0, 0, m.cols(), m.rows(), b);
-//        final byte[] targetPixels = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
-//        System.arraycopy(b, 0, targetPixels, 0, b.length);
         return img;
     }
 
@@ -226,8 +236,6 @@ public class XYCorrection {
         BufferedImage img = new BufferedImage(m.cols(), m.rows(), type);
         byte[] b = toByteArray(d);
         img.getRaster().getDataElements(0, 0, m.cols(), m.rows(), b);
-//        final byte[] targetPixels = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
-//        System.arraycopy(b, 0, targetPixels, 0, b.length);
         return img;
     }
 
@@ -240,6 +248,7 @@ public class XYCorrection {
     }
 
     // Display images
+    //useless method
     public static void displayImage(Image img) {
         ImageIcon icon=new ImageIcon(img);
         JFrame frame=new JFrame();
@@ -254,34 +263,20 @@ public class XYCorrection {
 
     // Display images with ImageJ
     public static ImagePlus displayImageIJ(Mat img) {
-        ImagePlus imgp;
-        if (img.channels() > 1) {
-            imgp = new ImagePlus("", convertMatCV8UC3ToBufferedImage(img));
-        }
-        else {
-            if (img.type() == CvType.CV_64FC1) {
-                imgp = new ImagePlus("", convertMatCV64ToBufferedImage(img));
-            } else {
-                imgp = new ImagePlus("", convertMatCV8UC1ToBufferedImage(img));
-            }
-        }
+        ImagePlus imgp = new ImagePlus();
+        if (img.type() == CvType.CV_8UC3) {imgp = new ImagePlus("", convertMatCV8UC3ToBufferedImage(img));}
+        else if (img.type() == CvType.CV_64FC1) {imgp = new ImagePlus("", convertMatCV64ToBufferedImage(img));}
+        else if (img.type() == CvType.CV_8UC1) {imgp = new ImagePlus("", convertMatCV8UC1ToBufferedImage(img));}
         imgp.show();
         return imgp;
     }
 
     //Display images with ImageJ, giving a title to image
     public static ImagePlus displayImageIJ(String titleOfImage, Mat img) {
-        ImagePlus imgp;
-        if (img.channels() > 1) {
-            imgp = new ImagePlus(titleOfImage, convertMatCV8UC3ToBufferedImage(img));
-        }
-        else {
-            if (img.type() == CvType.CV_64FC1) {
-                imgp = new ImagePlus("", convertMatCV64ToBufferedImage(img));
-            } else {
-                imgp = new ImagePlus("", convertMatCV8UC1ToBufferedImage(img));
-            }
-        }
+        ImagePlus imgp = new ImagePlus();
+        if (img.type() == CvType.CV_8UC3) {imgp = new ImagePlus(titleOfImage, convertMatCV8UC3ToBufferedImage(img));}
+        else if (img.type() == CvType.CV_64FC1) {imgp = new ImagePlus(titleOfImage, convertMatCV64ToBufferedImage(img));}
+        else if (img.type() == CvType.CV_8UC1) {imgp = new ImagePlus(titleOfImage, convertMatCV8UC1ToBufferedImage(img));}
         imgp.show();
         return imgp;
     }
