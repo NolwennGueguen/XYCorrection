@@ -29,6 +29,7 @@ public class XYCorrection {
     // Read images from path
     public static Mat readImage(String pathOfImage) {
         Mat img = Imgcodecs.imread(pathOfImage, Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
+
 //        Mat img2 = new Mat();
 //        img2.convertTo(img, CvType.CV_8UC1);
         return img;
