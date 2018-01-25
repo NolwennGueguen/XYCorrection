@@ -1,3 +1,4 @@
+import ij.ImageJ;
 import ij.ImagePlus;
 import org.bytedeco.javacpp.opencv_core;
 import org.opencv.calib3d.Calib3d;
@@ -28,6 +29,8 @@ public class XYCorrection {
     // Read images from path
     public static Mat readImage(String pathOfImage) {
         Mat img = Imgcodecs.imread(pathOfImage, Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
+//        Mat img2 = new Mat();
+//        img2.convertTo(img, CvType.CV_8UC1);
         return img;
     }
 
@@ -44,9 +47,10 @@ public class XYCorrection {
     // Get XY moves
     public static Mat getXYmoves(Mat img1, Mat img2) {
 
+        new ImageJ();
         MatOfKeyPoint keypoints1 = new MatOfKeyPoint();
         MatOfKeyPoint keypoints2 = new MatOfKeyPoint();
-        //MatOfDMatch matches1to2 = new MatOfDMatch();
+        MatOfDMatch matches1to2 = new MatOfDMatch();
         Mat imgMatches = new Mat();
         Mat img1_Keypoints = new Mat();
         Mat img2_Keypoints = new Mat();
@@ -64,12 +68,14 @@ public class XYCorrection {
         featureDetector.detect(img1, keypoints1);
         featureDetector.detect(img2, keypoints2);
 
-//        //Displaying keypoints
-//        Features2d.drawKeypoints(img1, keypoints1, img1_Keypoints);
-//        Features2d.drawKeypoints(img2, keypoints2, img2_Keypoints);
-//
-//        Features2d.drawMatches(img1, keypoints1, img2, keypoints2, matches1to2, imgMatches);
-//
+        //Displaying keypoints
+        Features2d.drawKeypoints(img1, keypoints1, img1_Keypoints);
+        Features2d.drawKeypoints(img2, keypoints2, img2_Keypoints);
+
+        Features2d.drawMatches(img1, keypoints1, img2, keypoints2, matches1to2, imgMatches);
+//        displayImageIJ("Image Keypoints 1", img1_Keypoints);
+//        displayImageIJ("Image Keypoints 2", img2_Keypoints);
+
 //        displayImageIJ("Image Matching", imgMatches);
 
         /* 2 - Calculate descriptors */
@@ -78,11 +84,11 @@ public class XYCorrection {
         Mat img2_descript = new Mat();
         extractor.compute(img1, keypoints1, img1_descript);
         extractor.compute(img2, keypoints2, img2_descript);
-//        System.out.println("\nImg1 Descriptor \n"  + "Nb Rows : " + img1_descriptor.rows() + "\n" + "Nb Cols : " + img1_descriptor.cols());
-//        System.out.println("\nImg2 Descriptor \n"  + "Nb Rows : " + img2_descriptor.rows() + "\n" + "Nb Cols : " + img2_descriptor.cols());
+//        System.out.println("\nImg1 Descriptor \n"  + "Nb Rows : " + img1_descript.rows() + "\n" + "Nb Cols : " + img1_descript.cols());
+//        System.out.println("\nImg2 Descriptor \n"  + "Nb Rows : " + img2_descript.rows() + "\n" + "Nb Cols : " + img2_descript.cols());
 
         /* 3 - Matching descriptor using FLANN matcher */
-        DescriptorMatcher match1to2 = DescriptorMatcher.create(descriptorMatcher); //seems obsolete
+        DescriptorMatcher match1to2 = DescriptorMatcher.create(descriptorMatcher);
         //FlannBasedMatcher match1to2 = FlannBasedMatcher.create();
         MatOfDMatch match1to2convert = new MatOfDMatch();
 
@@ -100,7 +106,7 @@ public class XYCorrection {
 
         /* 4 - Calculate min/max distances between keypoints */
         double max_dist = 0;
-        double min_dist = 300000;
+        double min_dist = 30000000;
         for (int i =0; i < img1_descriptor.rows(); i++) {
             double dist = matches[i].distance;
             if (dist < min_dist) {
@@ -150,32 +156,17 @@ public class XYCorrection {
         MatOfPoint2f img2_pt = new MatOfPoint2f();
         img2_pt.fromList(img2_ptArray);
         // Homography test and display
-        Mat outputMask = new Mat();
-        Mat homog = Calib3d.findHomography(img1_pt, img2_pt, Calib3d.LMEDS, 15, outputMask,2000, 0.995);
-        System.out.println(printMatContent(homog));
-//        displayImageIJ("Find Homography",Homog);
-//        Imgcodecs.imwrite(pathOfFiles+"/ResultatsTests/Homography"+detectorAlg+"_"+descriptorExtract+"_"+descriptorMatch+".tif", Homog);
+//        Mat outputMask = new Mat();
+//        Mat homog = Calib3d.findHomography(img1_pt, img2_pt);//, Calib3d.LMEDS, 15, outputMask,2000, 0.995);
+//        System.out.println(printMatContent(homog));
+////        displayImageIJ("Find Homography",Homog);
+////        Imgcodecs.imwrite(pathOfFiles+"/ResultatsTests/Homography"+detectorAlg+"_"+descriptorExtract+"_"+descriptorMatch+".tif", Homog);
+////
+//        Mat output = new Mat();
 //
-        Point[] img1_corners = new Point[4];
-        img1_corners[0] = new Point(0,0);
-        img1_corners[1] = new Point(img1.cols(),0);
-        img1_corners[2] = new Point(img1.cols(), img1.rows());
-        img1_corners[3] = new Point(0, img1.rows());
-
-        Point[] img1_target_corners = new Point[4];
-        img1_target_corners[0] = new Point(0,0);
-        img1_target_corners[1] = new Point(img1.cols(),0);
-        img1_target_corners[2] = new Point(img1.cols(), img1.rows());
-        img1_target_corners[3] = new Point(0, img1.rows());
-
-        Mat trans = Imgproc.getPerspectiveTransform(Converters.vector_Point2f_to_Mat(Arrays.asList(img1_corners)), Converters.vector_Point2f_to_Mat(Arrays.asList(img1_target_corners)));
-        Mat output = new Mat();
-        Imgproc.warpPerspective(img1, output, trans, new Size(img1.rows(), img1.cols()));
-
-
-        //Imgproc.warpPerspective(img1, output, homog, new Size(img1.rows(),img1.cols()));
-        System.out.println(output.type());
-        displayImageIJ("Ouptut", output);
+//        Imgproc.warpPerspective(img1, output, homog, new Size(img1.rows(),img1.cols()));
+//        System.out.println(output.type());
+//        displayImageIJ("Ouptut", output);
 
         /* End of method */
         System.out.println("\n*********************");
@@ -249,17 +240,17 @@ public class XYCorrection {
 
     // Display images
     //useless method
-    public static void displayImage(Image img) {
-        ImageIcon icon=new ImageIcon(img);
-        JFrame frame=new JFrame();
-        frame.setLayout(new FlowLayout());
-        frame.setSize(img.getWidth(null)+50, img.getHeight(null)+50);
-        JLabel lbl=new JLabel();
-        lbl.setIcon(icon);
-        frame.add(lbl);
-        frame.setVisible(true);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    }
+//    public static void displayImage(Image img) {
+//        ImageIcon icon=new ImageIcon(img);
+//        JFrame frame=new JFrame();
+//        frame.setLayout(new FlowLayout());
+//        frame.setSize(img.getWidth(null)+50, img.getHeight(null)+50);
+//        JLabel lbl=new JLabel();
+//        lbl.setIcon(icon);
+//        frame.add(lbl);
+//        frame.setVisible(true);
+//        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+//    }
 
     // Display images with ImageJ
     public static ImagePlus displayImageIJ(Mat img) {
@@ -299,8 +290,8 @@ public class XYCorrection {
         //Load openCv Library, required besides imports
         System.load("/home/nolwenngueguen/Téléchargements/opencv-3.4.0/build/lib/libopencv_java340.so");
 
-        Mat img1 = readImage("/home/nolwenngueguen/Téléchargements/ImagesTest/ratBrain-5-S21.tif");
-        Mat img2 = readImage("/home/nolwenngueguen/Téléchargements/ImagesTest/ratBrain-6-S21.tif");
+        Mat img1 = readImage("/home/nolwenngueguen/Téléchargements/ImagesTest/1-21.tif");
+        Mat img2 = readImage("/home/nolwenngueguen/Téléchargements/ImagesTest/2-21.tif");
 //        Mat img2_corrected = correctImages(img1, img2);
         getXYmoves(img1, img2);
 
