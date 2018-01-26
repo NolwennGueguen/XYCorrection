@@ -13,11 +13,12 @@ import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import static org.opencv.features2d.Features2d.NOT_DRAW_SINGLE_POINTS;
 
 
-public class XYCorrection {
+public class Correction3d {
 
     // Read images from path
     public static Mat readImage(String pathOfImage) {
@@ -117,6 +118,24 @@ public class XYCorrection {
         imgs_ptList.add(img1_pt);
         imgs_ptList.add(img2_pt);
         return imgs_ptList;
+    }
+
+    static  ArrayList<Float> getGoodMatchesCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList) {
+        ArrayList<Float> img_xList = new ArrayList<Float>();
+        ArrayList<Float> img_yList = new ArrayList<Float>();
+        ArrayList<Float> img_ptList = new ArrayList<Float>();
+        KeyPoint[] keypointsArray1 = keypoints.toArray();
+        float x1;
+        float y1;
+        for (int i = 0; i < good_matchesList.size() ; i++) {
+            x1 = (float) keypointsArray1[i].pt.x;
+            y1 = (float) keypointsArray1[i].pt.y;
+            img_xList.add(x1);
+            img_yList.add(y1);
+        }
+        img_ptList.addAll(img_xList);
+        img_ptList.addAll(img_yList);
+        return img_ptList;
     }
 
     // CONVERTERS
@@ -225,9 +244,8 @@ public class XYCorrection {
         return matArray.dump();
     }
 
-
     // Get XY moves
-    public static Mat getXYmoves(Mat img1, Mat img2) {
+    public static void getXYmoves(Mat img1, Mat img2) {
 
         new ImageJ();
         Mat img1_Keypoints = new Mat();
@@ -235,7 +253,7 @@ public class XYCorrection {
 
         Integer detectorAlgo = FeatureDetector.BRISK;
         Integer descriptorExtractor = DescriptorExtractor.BRISK;
-        Integer descriptorMatcher = DescriptorMatcher.FLANNBASED;
+        Integer descriptorMatcher = DescriptorMatcher.BRUTEFORCE;
         String detectorAlg = "BRISK";
         String descriptorExtract = "BRISK";
         String descriptorMatch = "FLANNBASED";
@@ -271,7 +289,7 @@ public class XYCorrection {
         /* 4 - Select and display Good Matches */
         ArrayList<DMatch> good_matchesList = selectGoodMatches(img1_descriptors, matcher);
         Mat imgGoodMatches = drawGoodMatches(img1, img2, keypoints1, keypoints2, good_matchesList);
-        displayImageIJ("Good Matches", imgGoodMatches);
+//        displayImageIJ("Good Matches", imgGoodMatches);
 //        Imgcodecs.imwrite(pathOfFiles+"/ResultatsTests/GoodMatch"+detectorAlg+"_"+descriptorExtract+"_"+descriptorMatch+".tif", imgGoodMatches);
 
         /* 5 - Localize the objects */
@@ -281,16 +299,28 @@ public class XYCorrection {
         // Homography test and display
         Mat outputMask = new Mat();
         Mat homog = Calib3d.findHomography(img1_pt, img2_pt);//, Calib3d.LMEDS, 15, outputMask,2000, 0.995);
-        System.out.println(printMatContent(homog));
 //        displayImageIJ("Find Homography",Homog);
 //        Imgcodecs.imwrite(pathOfFiles+"/ResultatsTests/Homography"+detectorAlg+"_"+descriptorExtract+"_"+descriptorMatch+".tif", Homog);
 
         Mat output = new Mat();
 
         Imgproc.warpPerspective(img1, output, homog, new Size(img1.rows(),img1.cols()));
-        System.out.println(output.type());
-        displayImageIJ("Ouptut", output);
-        return img1_Keypoints;
+//        displayImageIJ("Ouptut", output);
+
+
+        /* 6 - Get coordinates of GoodMatches Keypoints */
+        ArrayList<Float> img1_keypoints_coordinates = getGoodMatchesCoordinates(keypoints1, good_matchesList);
+        ArrayList<Float> img1_keypoints_x = new ArrayList<Float>(img1_keypoints_coordinates.subList(0, good_matchesList.size()));
+        ArrayList<Float> img1_keypoints_y = new ArrayList<Float>(img1_keypoints_coordinates.subList(good_matchesList.size(), img1_keypoints_coordinates.size()));
+        System.out.println("Img1 x coordinates " + img1_keypoints_x.toString());
+        System.out.println("Img1 x size " + img1_keypoints_x.size());
+        System.out.println("Img1 y coordinates " + img1_keypoints_y.toString());
+        System.out.println("Img1 y size " + img1_keypoints_y.size());
+
+//        ArrayList<Float> img2_keypoints_coordinates = getGoodMatchesCoordinates(keypoints2, good_matchesList);
+//
+//        System.out.println("Img1 coordinates " + img1_keypoints_coordinates.toString());
+//        System.out.println("Img2 coordinates " + img2_keypoints_coordinates.toString());
     }
 
     public static void main(String[] args) {

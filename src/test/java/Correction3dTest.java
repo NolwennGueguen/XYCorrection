@@ -11,7 +11,7 @@ import java.util.Arrays;
 import java.util.Collection;
 
 @RunWith(Parameterized.class)
-public class XYCorrectionTest {
+public class Correction3dTest {
 
     @Parameterized.Parameters
     public static Collection<Object[]> prepareFiles(){
