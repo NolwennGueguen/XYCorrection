@@ -9,9 +9,9 @@
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <!--<micromanager.version>-->
-            <!--2.0.0.2-->
-        <!--</micromanager.version>-->
+        <micromanager.version>
+            2.0.0.2
+        </micromanager.version>
 
         <opencv.version>
             3.2.0-0
@@ -21,23 +21,23 @@
     <dependencies>
         <!-- dependencies already present in Micro Manager -->
 
-        <!--<dependency>-->
-            <!--<groupId>org.micromanager</groupId>-->
-            <!--<artifactId>MMJ_</artifactId>-->
-            <!--<version>${micromanager.version}</version>-->
-        <!--</dependency>-->
+        <dependency>
+            <groupId>org.micromanager</groupId>
+            <artifactId>MMJ_</artifactId>
+            <version>${micromanager.version}</version>
+        </dependency>
 
-        <!--<dependency>-->
-            <!--<groupId>org.micromanager</groupId>-->
-            <!--<artifactId>MMCoreJ</artifactId>-->
-            <!--<version>${micromanager.version}</version>-->
-        <!--</dependency>-->
+        <dependency>
+            <groupId>org.micromanager</groupId>
+            <artifactId>MMCoreJ</artifactId>
+            <version>${micromanager.version}</version>
+        </dependency>
 
-        <!--<dependency>-->
-            <!--<groupId>org.micromanager</groupId>-->
-            <!--<artifactId>MMAcqEngine</artifactId>-->
-            <!--<version>${micromanager.version}</version>-->
-        <!--</dependency>-->
+        <dependency>
+            <groupId>org.micromanager</groupId>
+            <artifactId>MMAcqEngine</artifactId>
+            <version>${micromanager.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.openpnp</groupId>
