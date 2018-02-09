@@ -2,7 +2,6 @@ package gui;
 
 import ij.IJ;
 import main.DriftCorrection;
-import mmcorej.CMMCore;
 import org.micromanager.internal.MMStudio;
 
 import javax.swing.*;
@@ -15,7 +14,6 @@ public class DriftCorrectionMainDialog extends JFrame implements ActionListener 
     //Declaration of all GUI Objects
     public static JButton okButton;
     private final MMStudio mm_;
-//    private final CMMCore mmc_;
     private JFormattedTextField pathToImage1Tf_;
     private JFormattedTextField pathToImage2Tf_;
     private String pathToImage1;
@@ -23,7 +21,6 @@ public class DriftCorrectionMainDialog extends JFrame implements ActionListener 
 
     public DriftCorrectionMainDialog(MMStudio mmStudio) {
         mm_ = mmStudio;
-//        mmc_ = mmStudio.core();
 
         IJ.log("create main dialog ...");
         setDefaultLookAndFeelDecorated(true);
@@ -69,14 +66,14 @@ public class DriftCorrectionMainDialog extends JFrame implements ActionListener 
 
     @Override
     public void actionPerformed(ActionEvent actionEvent) {
-        if (actionEvent.getSource() == okButton) {
-            if (pathToImage1 != null && pathToImage2 != null) {
-                DriftCorrection.driftCorrection(pathToImage1, pathToImage2);
-            }
-        }
-        else {
-            IJ.log("One or both path are missing, please complete them before to continue.");
-        }
+//        if (actionEvent.getSource() == okButton) {
+//            if (pathToImage1 != null && pathToImage2 != null) {
+//                DriftCorrection.driftCorrection(pathToImage1, pathToImage2);
+//            }
+//        }
+//        else {
+//            IJ.log("One or both path are missing, please complete them before to continue.");
+//        }
     }
 
 }

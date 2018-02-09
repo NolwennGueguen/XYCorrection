@@ -3,7 +3,6 @@ import ij.process.ImageProcessor;
 import mmcorej.CMMCore;
 import mmcorej.StrVector;
 import org.micromanager.AutofocusPlugin;
-import org.micromanager.MenuPlugin;
 import org.micromanager.Studio;
 import org.micromanager.internal.MMStudio;
 import org.micromanager.internal.utils.*;
