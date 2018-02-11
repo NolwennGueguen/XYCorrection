@@ -1,5 +1,5 @@
 package main;//import ij.ImageJ;
-import ij.ImageJ;
+import IOUtils.IO;
 import ij.ImagePlus;
 import org.opencv.core.*;
 import org.opencv.features2d.DescriptorExtractor;
@@ -7,10 +7,8 @@ import org.opencv.features2d.DescriptorMatcher;
 import org.opencv.features2d.FeatureDetector;
 //import org.opencv.features2d.Features2d;
 import org.opencv.features2d.Features2d;
-import org.opencv.imgcodecs.Imgcodecs;
 
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -22,34 +20,21 @@ import static org.opencv.features2d.Features2d.NOT_DRAW_SINGLE_POINTS;
 
 public class DriftCorrection {
 
-    // Read images from path
-    static Mat readImage(String pathOfImage) throws IOException {
-        File f = new File(pathOfImage);
-        Mat img = null;
-        if(f.exists() && !f.isDirectory()) {
-            img = Imgcodecs.imread(pathOfImage, Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
-            img.convertTo(img, CvType.CV_8UC1);
-        }else{
-            throw new IOException("Image file doesn't exist");
-        }
-        return img;
-    }
-
-    static MatOfKeyPoint findKeypoints(Mat img, int detectorType) {
+    public static MatOfKeyPoint findKeypoints(Mat img, int detectorType) {
         MatOfKeyPoint keypoints = new MatOfKeyPoint();
         FeatureDetector featureDetector = FeatureDetector.create(detectorType);
         featureDetector.detect(img, keypoints);
         return keypoints;
     }
 
-    static Mat calculDescriptors(Mat img, MatOfKeyPoint keypoints, int descriptorType) {
+    public static Mat calculDescriptors(Mat img, MatOfKeyPoint keypoints, int descriptorType) {
         Mat img_descript = new Mat();
         DescriptorExtractor extractor = DescriptorExtractor.create(descriptorType);
         extractor.compute(img, keypoints, img_descript);
         return img_descript;
     }
 
-    static MatOfDMatch matchingDescriptor(Mat img1_calcul_descriptors, Mat img2_calcul_descriptors, int descriptorMatcherType) {
+    public static MatOfDMatch matchingDescriptor(Mat img1_calcul_descriptors, Mat img2_calcul_descriptors, int descriptorMatcherType) {
         MatOfDMatch matcherToConvert = new MatOfDMatch();
         DescriptorMatcher matcher = DescriptorMatcher.create(descriptorMatcherType);
         Mat img1_descriptor = convertMatDescriptorToCV32F(img1_calcul_descriptors);
@@ -243,8 +228,8 @@ public class DriftCorrection {
         Mat img2 = null;
         String imgDir = System.getProperty("user.dir") + "/src/main/ressources";
         try {
-            img1 = readImage(imgDir + "/1-21.tif");
-            img2 = readImage(imgDir + "/2-21.tif");
+            img1 = IO.readImage(imgDir + "/1-21.tif");
+            img2 = IO.readImage(imgDir + "/2-21.tif");
         } catch (IOException e) {
             e.printStackTrace();
         }

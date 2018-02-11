@@ -1,6 +1,6 @@
 package main;
 
-import IOUtils.IOUtils;
+import IOUtils.IO;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -43,10 +43,10 @@ public class DriftCorrectionParameters {
             try {
                 doc = sb.build(defaultParametersStream);
             } catch (IOException e) {
-                IOUtils.printErrorToIJLog(e);
+                IO.printErrorToIJLog(e);
             }
         } catch (JDOMException e) {
-            IOUtils.printErrorToIJLog(e);
+            IO.printErrorToIJLog(e);
         }
         root = (Element) doc.getContent(0);
     }
