@@ -10,6 +10,8 @@ import org.opencv.features2d.Features2d;
 import org.opencv.imgcodecs.Imgcodecs;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Date;
@@ -21,9 +23,15 @@ import static org.opencv.features2d.Features2d.NOT_DRAW_SINGLE_POINTS;
 public class DriftCorrection {
 
     // Read images from path
-    static Mat readImage(String pathOfImage) {
-        Mat img = Imgcodecs.imread(pathOfImage, Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
-        img.convertTo(img, CvType.CV_8UC1);
+    static Mat readImage(String pathOfImage) throws IOException {
+        File f = new File(pathOfImage);
+        Mat img = null;
+        if(f.exists() && !f.isDirectory()) {
+            img = Imgcodecs.imread(pathOfImage, Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
+            img.convertTo(img, CvType.CV_8UC1);
+        }else{
+            throw new IOException("Image file doesn't exist");
+        }
         return img;
     }
 
@@ -204,6 +212,13 @@ public class DriftCorrection {
         if (img.type() == CvType.CV_8UC3) {imgp = new ImagePlus(titleOfImage, convertMatCV8UC3ToBufferedImage(img));}
         else if (img.type() == CvType.CV_64FC1) {imgp = new ImagePlus(titleOfImage, convertMatCV64ToBufferedImage(img));}
         else if (img.type() == CvType.CV_8UC1) {imgp = new ImagePlus(titleOfImage, convertMatCV8UC1ToBufferedImage(img));}
+        else{
+            try {
+                throw new Exception("Unknown image type");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
         imgp.show();
     }
 
@@ -220,13 +235,19 @@ public class DriftCorrection {
     public static void main (String[] args) {//driftCorrection(String pathOfImage1, String pathOfImage2) {
         long startTime = new Date().getTime();
 
-        new ImageJ();
         //Load openCv Library, required besides imports
-        System.load("/home/nolwenngueguen/Téléchargements/opencv-3.4.0/build/lib/libopencv_java340.so");
+        nu.pattern.OpenCV.loadShared();
 
         //Load images
-        Mat img1 = readImage("/home/nolwenngueguen/Téléchargements/ImagesTest/1-21.tif");
-        Mat img2 = readImage("/home/nolwenngueguen/Téléchargements/ImagesTest/2-21.tif");
+        Mat img1 = null;
+        Mat img2 = null;
+        String imgDir = System.getProperty("user.dir") + "/src/main/ressources";
+        try {
+            img1 = readImage(imgDir + "/1-21.tif");
+            img2 = readImage(imgDir + "/2-21.tif");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         //Initialize detectors and descriptors
         Integer detectorAlgo = FeatureDetector.BRISK;
