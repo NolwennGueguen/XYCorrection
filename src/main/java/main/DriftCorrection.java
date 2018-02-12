@@ -42,13 +42,81 @@ public class DriftCorrection {
         matcher.match(img1_descriptor, img2_descriptor, matcherToConvert);
         return matcherToConvert;
     }
+////    Old Method for calculate distances
+//    static ArrayList<Double> calculDistances(DMatch[] matcher, Mat img_descriptor) {
+//        double max_dist = Double.MIN_VALUE;
+//        double min_dist = Double.MAX_VALUE;
+//        ArrayList<Double> list = new ArrayList<Double>();
+//        for (int i = 0; i < img_descriptor.rows(); i++) {
+//            double dist = matcher[i].distance;
+//            if (dist < min_dist) {
+//                min_dist = dist;
+//            }
+//            if (dist > max_dist) {
+//                max_dist = dist;
+//            }
+//        }
+//        list.add(min_dist);
+//        list.add(max_dist);
+//        return list;
+//    }
+//
+//    static ArrayList<DMatch> selectGoodMatches(Mat img_descriptor, MatOfDMatch matcher) {
+//        DMatch[] matcherArray = matcher.toArray();
+//        ArrayList<DMatch> good_matchesList = new ArrayList<DMatch>();
+//        ArrayList<Double> list = calculDistances(matcherArray, img_descriptor);
+//        double min_dist = list.get(0);
+//        for (int i = 0; i < img_descriptor.rows(); i++) {
+//            if (matcherArray[i].distance < ( 1.5 * min_dist)) {
+//                good_matchesList.add(matcherArray[i]);
+//            }
+//        }
+//        System.out.println("Number of Good Matches : " + good_matchesList.size());
+//        return good_matchesList;
+//    }
+//
 
-    static ArrayList<Double> calculDistances(DMatch[] matcher, Mat img_descriptor) {
+    //Method to calculate distance between each pair of points
+    public static ArrayList getDistances(MatOfDMatch matcher, MatOfKeyPoint keyPoint1, MatOfKeyPoint keyPoint2) {
+        DMatch[] matcherArray = matcher.toArray();
+        KeyPoint[] keypoint1Array = keyPoint1.toArray();
+        KeyPoint[] keypoint2Array = keyPoint2.toArray();
+        ArrayList<Double> listOfDistances = new ArrayList<>();
+        double x;
+        double x1;
+        double x2;
+        double y;
+        double y1;
+        double y2;
+        double d;
+        double d2;
+        for (int i =0; i < matcherArray.length; i++) {
+            int dmQuery = matcherArray[i].queryIdx;
+            int dmTrain = matcherArray[i].trainIdx;
+
+            x1 = keypoint1Array[dmQuery].pt.x;
+            x2 = keypoint2Array[dmTrain].pt.x;
+            x = x2 - x1;
+
+            y1 = keypoint1Array[dmQuery].pt.y;
+            y2 = keypoint2Array[dmTrain].pt.y;
+            y = y2 - y1;
+
+            d2= Math.pow(x, 2.0) + Math.pow(y, 2.0);
+            d = Math.sqrt(d2);
+
+            listOfDistances.add(d);
+        }
+        return listOfDistances;
+    }
+
+    public static ArrayList<Double> calculMinMaxDistances(MatOfDMatch matcher, MatOfKeyPoint keyPoint1, MatOfKeyPoint keyPoint2, Mat img_descriptor) {
         double max_dist = Double.MIN_VALUE;
         double min_dist = Double.MAX_VALUE;
         ArrayList<Double> list = new ArrayList<Double>();
+        ArrayList<Double> listOfDistances = getDistances(matcher, keyPoint1, keyPoint2);
         for (int i = 0; i < img_descriptor.rows(); i++) {
-            double dist = matcher[i].distance;
+            double dist = listOfDistances.get(i);
             if (dist < min_dist) {
                 min_dist = dist;
             }
@@ -61,13 +129,13 @@ public class DriftCorrection {
         return list;
     }
 
-    static ArrayList<DMatch> selectGoodMatches(Mat img_descriptor, MatOfDMatch matcher) {
+    public  static ArrayList<DMatch> selectGoodMatches(MatOfDMatch matcher, MatOfKeyPoint keyPoint1, MatOfKeyPoint keyPoint2, Mat img_descriptor) {
         DMatch[] matcherArray = matcher.toArray();
-        ArrayList<DMatch> good_matchesList = new ArrayList<DMatch>();
-        ArrayList<Double> list = calculDistances(matcherArray, img_descriptor);
-        double min_dist = list.get(0);
+        double min_dist = calculMinMaxDistances(matcher, keyPoint1, keyPoint2, img_descriptor).get(0);
+        ArrayList<Double> listOfDistances = getDistances(matcher, keyPoint1, keyPoint2);
+        ArrayList<DMatch> good_matchesList = new ArrayList<>();
         for (int i = 0; i < img_descriptor.rows(); i++) {
-            if (matcherArray[i].distance < ( 1.5 * min_dist)) {
+            if (listOfDistances.get(i) < 1.5 * min_dist) {
                 good_matchesList.add(matcherArray[i]);
             }
         }
@@ -83,7 +151,7 @@ public class DriftCorrection {
 //        return imgGoodMatches;
 //    }
 
-    static  ArrayList<Float> getGoodMatchesXCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList) {
+    static ArrayList<Float> getGoodMatchesXCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList) {
         ArrayList<Float> img_xList = new ArrayList<Float>();
         KeyPoint[] keypointsArray1 = keypoints.toArray();
         float x1;
@@ -94,7 +162,7 @@ public class DriftCorrection {
         return img_xList;
     }
 
-    static  ArrayList<Float> getGoodMatchesYCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList) {
+    static ArrayList<Float> getGoodMatchesYCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList) {
         ArrayList<Float> img_yList = new ArrayList<Float>();
         KeyPoint[] keypointsArray1 = keypoints.toArray();
         float y1;
@@ -207,7 +275,7 @@ public class DriftCorrection {
         imgp.show();
     }
 
-//Draw Goodmatches
+    //Draw Goodmatches
     static Mat drawGoodMatches(Mat img1, Mat img2, MatOfKeyPoint keypoints1, MatOfKeyPoint keypoints2, ArrayList<DMatch> good_matchesList) {
         Mat good_matches = listToMat(good_matchesList);
         Mat imgGoodMatches = new Mat();
@@ -215,7 +283,6 @@ public class DriftCorrection {
         Features2d.drawMatches(img1, keypoints1, img2, keypoints2, (MatOfDMatch) good_matches, imgGoodMatches, Scalar.all(-1), Scalar.all(0.5), matchesMask, NOT_DRAW_SINGLE_POINTS);
         return imgGoodMatches;
     }
-
 
     public static void main (String[] args) {//driftCorrection(String pathOfImage1, String pathOfImage2) {
         long startTime = new Date().getTime();
@@ -266,7 +333,7 @@ public class DriftCorrection {
         displayImageIJ("Matches",imgMatches);
 
         /* 4 - Select and display Good Matches */
-        ArrayList<DMatch> good_matchesList = selectGoodMatches(img1_descriptors, matcher);
+        ArrayList<DMatch> good_matchesList = selectGoodMatches(matcher, keypoints1, keypoints2, img1_descriptors);
         Mat imgGoodMatches = drawGoodMatches(img1, img2, keypoints1, keypoints2, good_matchesList);
         displayImageIJ("Good Matches", imgGoodMatches);
 

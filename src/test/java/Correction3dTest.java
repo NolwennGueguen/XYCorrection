@@ -4,15 +4,13 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfDMatch;
-import org.opencv.core.MatOfKeyPoint;
+import org.opencv.core.*;
 import org.opencv.features2d.DescriptorExtractor;
 import org.opencv.features2d.DescriptorMatcher;
 import org.opencv.features2d.FeatureDetector;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -64,7 +62,7 @@ public class Correction3dTest {
     public void assertDescriptors() {
         Integer detectorAlgo = FeatureDetector.BRISK;
         Mat img1_descriptors = DriftCorrection.calculDescriptors(img1,
-              DriftCorrection.findKeypoints(img1, detectorAlgo), DescriptorExtractor.BRISK);
+                DriftCorrection.findKeypoints(img1, detectorAlgo), DescriptorExtractor.BRISK);
         Assert.assertEquals((long)img1_descriptors.get(0,1)[0], (long)122.0);
         Assert.assertEquals((long)img1_descriptors.get(0,10)[0], (long)16.0);
     }
@@ -74,17 +72,26 @@ public class Correction3dTest {
         Integer descriptorMatcher = DescriptorMatcher.BRUTEFORCE;
         Integer detectorAlgo = FeatureDetector.BRISK;
         Mat img1_descriptors = DriftCorrection.calculDescriptors(img1,
-              DriftCorrection.findKeypoints(img1, detectorAlgo), DescriptorExtractor.BRISK);
+                DriftCorrection.findKeypoints(img1, detectorAlgo), DescriptorExtractor.BRISK);
         Mat img2_descriptors = DriftCorrection.calculDescriptors(img2,
-              DriftCorrection.findKeypoints(img2, detectorAlgo), DescriptorExtractor.BRISK);
+                DriftCorrection.findKeypoints(img2, detectorAlgo), DescriptorExtractor.BRISK);
         MatOfDMatch matcher =
-              DriftCorrection.matchingDescriptor(img1_descriptors, img2_descriptors, descriptorMatcher);
+                DriftCorrection.matchingDescriptor(img1_descriptors, img2_descriptors, descriptorMatcher);
         Assert.assertEquals((long)matcher.toArray()[0].distance, (long)736.6132);
         Assert.assertEquals((long)matcher.toArray()[10].distance, (long)693.32025);
     }
 
-//    @Test
-//    public void assertFiltering(){
-//
-//    }
+    @Test
+    public void assertFiltering() {
+        Integer descriptorMatcher = DescriptorMatcher.BRUTEFORCE;
+        Integer detectorAlgo = FeatureDetector.BRISK;
+        MatOfKeyPoint keypoint1 = DriftCorrection.findKeypoints(img1, detectorAlgo);
+        MatOfKeyPoint keypoint2 = DriftCorrection.findKeypoints(img2, detectorAlgo);
+        Mat img1_descriptors = DriftCorrection.calculDescriptors(img1, keypoint1, DescriptorExtractor.BRISK);
+        Mat img2_descriptors = DriftCorrection.calculDescriptors(img2, keypoint2, DescriptorExtractor.BRISK);
+        MatOfDMatch matcher = DriftCorrection.matchingDescriptor(img1_descriptors, img2_descriptors, descriptorMatcher);
+
+        ArrayList<DMatch> listOfGoodMatches = DriftCorrection.selectGoodMatches(matcher, keypoint1, keypoint2, img1_descriptors);
+        Assert.assertEquals(2, listOfGoodMatches.size());
+    }
 }
