@@ -18,7 +18,7 @@ import java.util.List;
 import static org.opencv.features2d.Features2d.NOT_DRAW_SINGLE_POINTS;
 
 
-public class Correction3d {
+public class Correction3d_old {
 
     // Read images from path
     public static Mat readImage(String pathOfImage) {

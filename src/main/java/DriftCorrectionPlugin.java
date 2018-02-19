@@ -22,8 +22,8 @@ public class DriftCorrectionPlugin extends AutofocusBase implements AutofocusPlu
     private CMMCore cmmCore;
     private String deviceName;
 
-//    public DriftCorrectionPlugin() {
-//    }
+    public DriftCorrectionPlugin() {
+    }
 
 
     @Override
@@ -245,6 +245,7 @@ public class DriftCorrectionPlugin extends AutofocusBase implements AutofocusPlu
         this.cmmCore = mmstudio.getCMMCore();
         this.deviceName = this.cmmCore.getAutoFocusDevice();
         this.mmStudio = (MMStudio) mmstudio;
+        this.mmStudio.events().registerForEvents(this);
         new DriftCorrectionMainDialog(mmStudio);
     }
 

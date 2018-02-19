@@ -261,7 +261,7 @@ public class DriftCorrection {
 
 
 
-    public static void main (String[] args) {//driftCorrection(String pathOfImage1, String pathOfImage2) {
+    public static void driftCorrection(String pathOfImage1, String pathOfImage2) { //void main (String[] args) {//
         long startTime = new Date().getTime();
 
 //        new ImageJ();

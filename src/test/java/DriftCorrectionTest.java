@@ -15,7 +15,7 @@ import java.util.Arrays;
 import java.util.Collection;
 
 @RunWith(Parameterized.class)
-public class Correction3dTest {
+public class DriftCorrectionTest {
 
     @Parameterized.Parameters
     public static Collection<Object[]> prepareFiles(){
