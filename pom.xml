@@ -4,15 +4,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>org.scijava</groupId>
+        <artifactId>pom-scijava</artifactId>
+        <version>19.2.0</version>
+    </parent>
+
     <groupId>MMStabilisation</groupId>
     <artifactId>XYCorrection</artifactId>
     <version>1.0-SNAPSHOT</version>
-
-    <!--<parent>-->
-        <!--<groupId>org.scijava</groupId>-->
-        <!--<artifactId>pom-scijava</artifactId>-->
-        <!--<version>16.2.1-SNAPSHOT</version>-->
-    <!--</parent>-->
 
     <properties>
         <micromanager.version>
@@ -27,44 +27,12 @@
     </properties>
 
     <dependencies>
-        <!-- dependencies already present in Micro Manager -->
-
-        <dependency>
-            <groupId>org.micromanager</groupId>
-            <artifactId>MMJ_</artifactId>
-            <version>${micromanager.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.micromanager</groupId>
-            <artifactId>MMCoreJ</artifactId>
-            <version>${micromanager.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.micromanager</groupId>
-            <artifactId>MMAcqEngine</artifactId>
-            <version>${micromanager.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>org.openpnp</groupId>
             <artifactId>opencv</artifactId>
             <version>${opencv.version}</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.jdom</groupId>
-            <artifactId>jdom2</artifactId>
-            <version>2.0.6</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <!--<dependency>-->
-            <!--<groupId>junit</groupId>-->
-            <!--<artifactId>junit</artifactId>-->
-            <!--<version>5.0</version>-->
-        <!--</dependency>-->
 
         <!-- Block for unit tests -->
         <dependency>
@@ -79,18 +47,21 @@
             <version>5.0.1</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.junit.vintage</groupId>
             <artifactId>junit-vintage-engine</artifactId>
             <version>4.12.1</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
             <version>1.0.1</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-runner</artifactId>
@@ -98,63 +69,24 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Dependency for statistics -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math3</artifactId>
-            <version>LATEST</version>
-        </dependency>
+        <!--Dependency for statistics-->
+        <!--<dependency>-->
+            <!--<groupId>org.apache.commons</groupId>-->
+            <!--<artifactId>commons-math3</artifactId>-->
+            <!--<version>LATEST</version>-->
+        <!--</dependency>-->
 
         <!-- ImageJ -->
         <dependency>
             <groupId>net.imagej</groupId>
             <artifactId>ij</artifactId>
-            <version>1.51r</version>
+            <version>1.50i</version>
         </dependency>
-
-        <!-- dependency for opencv-contrib (search another), required for access to SURF/SIFT algorithms -->
-
-        <!--<dependency>-->
-            <!--<groupId>org.bytedeco.javacpp-presets</groupId>-->
-            <!--<artifactId>opencv</artifactId>-->
-            <!--<version>3.0.0-1.0</version>-->
-        <!--</dependency>-->
-
-        <!--<dependency>-->
-            <!--<groupId>org.bytedeco.javacpp</groupId>-->
-            <!--<artifactId>opencv</artifactId>-->
-            <!--<version>3.1.0</version>-->
-        <!--</dependency>-->
 
         <dependency>
             <groupId>org.scijava</groupId>
             <artifactId>scijava-common</artifactId>
             <version>2.69.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math</artifactId>
-            <version>2.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math</artifactId>
-            <version>2.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math3</artifactId>
-            <version>3.6.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math3</artifactId>
-            <version>3.6.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math3</artifactId>
-            <version>3.4.1</version>
         </dependency>
     </dependencies>
 

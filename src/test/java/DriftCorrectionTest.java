@@ -1,15 +1,10 @@
-import IOUtils.IO;
 import main.DriftCorrection;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.opencv.core.*;
-import org.opencv.features2d.DescriptorExtractor;
-import org.opencv.features2d.DescriptorMatcher;
-import org.opencv.features2d.FeatureDetector;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -21,15 +16,11 @@ public class DriftCorrectionTest {
     public static Collection<Object[]> prepareFiles(){
         //need this function to load .so of opencv
         nu.pattern.OpenCV.loadShared();
-        Mat img1 = null;
+        Mat img1;
         Mat img2 = null;
         String root = System.getProperty("user.dir") + "/src/main/ressources/";
-        try {
-            img1 = IO.readImage(root + "1-21.tif");
-            img2 = IO.readImage(root + "2-21.tif");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        img1 = DriftCorrection.readImage(root + "1-21.tif");
+        img2 = DriftCorrection.readImage(root + "2-21.tif");
         return Arrays.asList(new Object[][] {{img1,img2}});
     }
     @Parameterized.Parameter

@@ -1,5 +1,4 @@
 package main;
-import IOUtils.IO;
 import ij.ImageJ;
 import ij.ImagePlus;
 import org.opencv.core.*;
@@ -7,23 +6,38 @@ import org.opencv.features2d.DescriptorExtractor;
 import org.opencv.features2d.DescriptorMatcher;
 import org.opencv.features2d.FeatureDetector;
 import org.opencv.features2d.Features2d;
+import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
 
+import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Date;
 
 import static org.opencv.features2d.Features2d.NOT_DRAW_SINGLE_POINTS;
 
 public class DriftCorrection {
 
-    public static final double UMPERMIN = 0.5;
-    public static final double INTERVALINMIN = 2;
+    public static final double UMPERMIN = 3000;
+    public static final double INTERVALINMIN = 30;
     public static final double UMPERPIX = 0.065;
-    public static final Integer DETECTORALGO = FeatureDetector.ORB;
+    public static final Integer DETECTORALGO = FeatureDetector.BRISK;
     public static final Integer DESCRIPTOREXTRACTOR = DescriptorExtractor.ORB;
     public static final Integer DESCRIPTORMATCHER = DescriptorMatcher.FLANNBASED;
+
+    public static Mat readImage(String pathOfImage) {
+        Mat img = Imgcodecs.imread(pathOfImage, CvType.CV_16UC1);
+        Mat img1 = new Mat(img.cols(), img.rows(), CvType.CV_8UC1);
+        img.convertTo(img1, CvType.CV_8UC1, 0.00390625);
+        Mat img2 = equalizeImages(img1);
+        return img2;
+    }
+
+    private static Mat equalizeImages(Mat img) {
+        Mat imgEqualized = new Mat(img.cols(), img.rows(), img.type());
+        Imgproc.equalizeHist(img, imgEqualized);
+        return imgEqualized;
+    }
 
     public static MatOfKeyPoint findKeypoints(Mat img, int detectorType) {
         MatOfKeyPoint keypoints = new MatOfKeyPoint();
@@ -49,7 +63,7 @@ public class DriftCorrection {
     }
 
     //Calculate distance (in pixels) between each pair of points :
-    public static ArrayList<Double> getDistances(MatOfDMatch matcher, MatOfKeyPoint keyPoint1, MatOfKeyPoint keyPoint2) {
+    private static ArrayList<Double> getDistances(MatOfDMatch matcher, MatOfKeyPoint keyPoint1, MatOfKeyPoint keyPoint2) {
         DMatch[] matcherArray = matcher.toArray();
         KeyPoint[] keypoint1Array = keyPoint1.toArray();
         KeyPoint[] keypoint2Array = keyPoint2.toArray();
@@ -61,9 +75,9 @@ public class DriftCorrection {
         double y1;
         double y2;
         double d;
-        for (int i =0; i < matcherArray.length; i++) {
-            int dmQuery = matcherArray[i].queryIdx;
-            int dmTrain = matcherArray[i].trainIdx;
+        for (DMatch aMatcherArray : matcherArray) {
+            int dmQuery = aMatcherArray.queryIdx;
+            int dmTrain = aMatcherArray.trainIdx;
 
             x1 = keypoint1Array[dmQuery].pt.x;
             x2 = keypoint2Array[dmTrain].pt.x;
@@ -73,7 +87,7 @@ public class DriftCorrection {
             y2 = keypoint2Array[dmTrain].pt.y;
             y = y2 - y1;
 
-            d = Math.hypot(x, y); // /0.065;
+            d = Math.hypot(x, y);
             listOfDistances.add(d);
         }
         return listOfDistances;
@@ -84,23 +98,23 @@ public class DriftCorrection {
         ArrayList<Double> listOfDistances = getDistances(matcher, keyPoint1, keyPoint2);
         ArrayList<DMatch> good_matchesList = new ArrayList<>();
         for (int i = 0; i < matcherArray.length; i++) {
-            if (listOfDistances.get(i) <= (umPerMin/umPerPixel)* intervalInMin) {
+            if (listOfDistances.get(i) <= (umPerMin/intervalInMin)){ // /umPerPixel) * intervalInMin) {
                 good_matchesList.add(matcherArray[i]);
             }
         }
         return good_matchesList;
     }
 
-    static ArrayList<Float> getGoodMatchesXCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList, Boolean isReferenceImage) {
-        ArrayList<Float> img_xList = new ArrayList<Float>();
+    private static ArrayList<Float> getGoodMatchesXCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList, Boolean isReferenceImage) {
+        ArrayList<Float> img_xList = new ArrayList<>();
         KeyPoint[] keypointsArray1 = keypoints.toArray();
         float x;
         int id;
-        for (int i = 0; i < good_matchesList.size() ; i++) {
+        for (DMatch aGood_matchesList : good_matchesList) {
             if (isReferenceImage) {
-                id = good_matchesList.get(i).queryIdx;
+                id = aGood_matchesList.queryIdx;
             } else {
-                id = good_matchesList.get(i).trainIdx;
+                id = aGood_matchesList.trainIdx;
             }
             x = (float) keypointsArray1[id].pt.x;
             img_xList.add(x);
@@ -108,16 +122,16 @@ public class DriftCorrection {
         return img_xList;
     }
 
-    static ArrayList<Float> getGoodMatchesYCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList, Boolean isReferenceImage) {
-        ArrayList<Float> img_yList = new ArrayList<Float>();
+    private static ArrayList<Float> getGoodMatchesYCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList, Boolean isReferenceImage) {
+        ArrayList<Float> img_yList = new ArrayList<>();
         KeyPoint[] keypointsArray1 = keypoints.toArray();
         float y;
         int id;
-        for (int i = 0; i < good_matchesList.size() ; i++) {
+        for (DMatch aGood_matchesList : good_matchesList) {
             if (isReferenceImage) {
-                id = good_matchesList.get(i).queryIdx;
+                id = aGood_matchesList.queryIdx;
             } else {
-                id = good_matchesList.get(i).trainIdx;
+                id = aGood_matchesList.trainIdx;
             }
             y = (float) keypointsArray1[id].pt.y;
             img_yList.add(y);
@@ -125,7 +139,7 @@ public class DriftCorrection {
         return img_yList;
     }
 
-    static Float getMeanXDisplacement(ArrayList<Float> img1_xCoordinates, ArrayList<Float> img2_xCoordinates) {
+    private static Float getMeanXDisplacement(ArrayList<Float> img1_xCoordinates, ArrayList<Float> img2_xCoordinates) {
         int totalNumberOfX = img1_xCoordinates.size();
         float sumXDistancesCoordinates = 0;
         float meanXDifferencesCoordinates;
@@ -137,7 +151,7 @@ public class DriftCorrection {
         return meanXDifferencesCoordinates;
     }
 
-    static Float getMeanYDisplacement(ArrayList<Float> img1_yCoordinates, ArrayList<Float> img2_yCoordinates) {
+    private static Float getMeanYDisplacement(ArrayList<Float> img1_yCoordinates, ArrayList<Float> img2_yCoordinates) {
         int totalNumberOfY = img1_yCoordinates.size();
         float sumYDistancesCoordinates = 0;
         float meanYDifferencesCoordinates;
@@ -149,7 +163,7 @@ public class DriftCorrection {
         return meanYDifferencesCoordinates;
     }
 
-    static Float getXVariance(ArrayList<Float> img1_xCoordinates, ArrayList<Float> img2_xCoordinates, Float meanXDisplacement) {
+    private static Float getXVariance(ArrayList<Float> img1_xCoordinates, ArrayList<Float> img2_xCoordinates, Float meanXDisplacement) {
         int totalNumberOfX = img1_xCoordinates.size();
         float sumDiffSquared = 0;
         float varianceX;
@@ -161,7 +175,7 @@ public class DriftCorrection {
         return  varianceX;
     }
 
-    static Float getYVariance(ArrayList<Float> img1_yCoordinates, ArrayList<Float> img2_yCoordinates, Float meanYDisplacement) {
+    private static Float getYVariance(ArrayList<Float> img1_yCoordinates, ArrayList<Float> img2_yCoordinates, Float meanYDisplacement) {
         int totalNumberOfY = img1_yCoordinates.size();
         float sumDiffSquared = 0;
         float varianceY;
@@ -174,8 +188,8 @@ public class DriftCorrection {
     }
 
     // CONVERTERS
-    // Convert 8bits Mat images to Buffered
-    static BufferedImage convertMatCV8UC3ToBufferedImage(Mat m) {
+    // Convert 8bits 3 Channels Mat images to Buffered
+    private static BufferedImage convertMatCV8UC3ToBufferedImage(Mat m) {
         int type = BufferedImage.TYPE_3BYTE_BGR;
         int bufferSize = m.channels() * m.cols() * m.rows();
         byte[] b = new byte[bufferSize];
@@ -184,8 +198,8 @@ public class DriftCorrection {
         img.getRaster().setDataElements(0, 0, m.cols(), m.rows(), b);
         return img;
     }
-
-    static BufferedImage convertMatCV8UC1ToBufferedImage(Mat m) {
+    // Convert 8bits 1 Channel Mat images to Buffered
+    private static BufferedImage convertMatCV8UC1ToBufferedImage(Mat m) {
         int type = BufferedImage.TYPE_BYTE_GRAY;
         int bufferSize = m.channels() * m.cols() * m.rows();
         byte[] b = new byte[bufferSize];
@@ -194,20 +208,8 @@ public class DriftCorrection {
         img.getRaster().setDataElements(0, 0, m.cols(), m.rows(), b);
         return img;
     }
-
-    // Convert double Array to byte Array
-    //https://stackoverflow.com/questions/15533854/converting-byte-array-to-double-array
-    static byte[] toByteArray(double[] doubleArray){
-        int times = Double.SIZE / Byte.SIZE;
-        byte[] bytes = new byte[doubleArray.length * times];
-        for(int i=0;i<doubleArray.length;i++){
-            ByteBuffer.wrap(bytes, i*times, times).putDouble(doubleArray[i]);
-        }
-        return bytes;
-    }
-
     // Convert 64bits Mat images to Buffered
-    static BufferedImage convertMatCV64ToBufferedImage(Mat m) {
+    private static BufferedImage convertMatCV64ToBufferedImage(Mat m) {
         int type = BufferedImage.TYPE_3BYTE_BGR;
         int bufferSize = m.channels() * m.cols() * m.rows();
         double[] d = new double[bufferSize];
@@ -218,8 +220,19 @@ public class DriftCorrection {
         return img;
     }
 
+    // Convert double Array to byte Array
+    //https://stackoverflow.com/questions/15533854/converting-byte-array-to-double-array
+    private static byte[] toByteArray(double[] doubleArray){
+        int times = Double.SIZE / Byte.SIZE;
+        byte[] bytes = new byte[doubleArray.length * times];
+        for(int i=0;i<doubleArray.length;i++){
+            ByteBuffer.wrap(bytes, i*times, times).putDouble(doubleArray[i]);
+        }
+        return bytes;
+    }
+
     //Convert Descriptors to CV_32F
-    static  Mat convertMatDescriptorToCV32F(Mat descriptor) {
+    private static  Mat convertMatDescriptorToCV32F(Mat descriptor) {
         if (descriptor.type() != CvType.CV_32F) {
             descriptor.convertTo(descriptor, CvType.CV_32F);
         }
@@ -227,7 +240,7 @@ public class DriftCorrection {
     }
 
     //Convert DMatch ArrayList to Mat
-    static Mat listToMat(ArrayList<DMatch> list) {
+    private static Mat listToMat(ArrayList<DMatch> list) {
         MatOfDMatch mat = new MatOfDMatch();
         DMatch[] array = list.toArray(new DMatch[list.size()]);
         mat.fromArray(array);
@@ -259,37 +272,36 @@ public class DriftCorrection {
         return imgGoodMatches;
     }
 
-
-
-    public static void driftCorrection(String pathOfImage1, String pathOfImage2) { //void main (String[] args) {//
-        long startTime = new Date().getTime();
-
+    public static void main (String[] args) { //double[] driftCorrection(Mat img1, Mat img2) {
 //        new ImageJ();
+//        long start = Date.st
         //Load openCv Library, required besides imports
         nu.pattern.OpenCV.loadShared();
 
-        //Load images
-        Mat img1 = null;
-        Mat img2 = null;
-        String imgDir = System.getProperty("user.dir") + "/src/main/ressources";
-        try {
-            img1 = IO.readImage(imgDir + "/4-21.tif");
-            img2 = IO.readImage(imgDir + "/6-21.tif");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+//        //Load images
+//        Mat img1 = null;
+//        Mat img2 = null;
+//        String imgDir = System.getProperty("user.dir") + "/src/main/ressources";
+//        try {
+//            img1 = IO.readImage(imgDir + "/4-21.tif");
+//            img2 = IO.readImage(imgDir + "/6-21.tif");
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+
+        Mat img1 = readImage("/home/dataNolwenn/ImagesTest/Test1.tif");
+        Mat img2 = readImage("/home/dataNolwenn/ImagesTest/Test2.tif");
 
         /* 1 - Detect keypoints */
         MatOfKeyPoint keypoints1 = findKeypoints(img1, DETECTORALGO);
         MatOfKeyPoint keypoints2 = findKeypoints(img2, DETECTORALGO);
+        Mat img1_Keypoints = new Mat();
+        Mat img2_Keypoints = new Mat();
+        Features2d.drawKeypoints(img1, keypoints1, img1_Keypoints);
+        Features2d.drawKeypoints(img2, keypoints2, img2_Keypoints);
+        displayImageIJ("Img1", img1_Keypoints);
+        displayImageIJ("Img2", img2_Keypoints);
 
-//        //Display keypoints
-//        Mat img1_Keypoints = new Mat();
-//        Mat img2_Keypoints = new Mat();
-//        Features2d.drawKeypoints(img1, keypoints1, img1_Keypoints);
-//        Features2d.drawKeypoints(img2, keypoints2, img2_Keypoints);
-//        displayImageIJ("Image Keypoints 1", img1_Keypoints);
-//        displayImageIJ("Image Keypoints 2", img2_Keypoints);
 
         /* 2 - Calculate descriptors */
         Mat img1_descriptors = calculDescriptors(img1, keypoints1, DESCRIPTOREXTRACTOR);
@@ -299,20 +311,23 @@ public class DriftCorrection {
         MatOfDMatch matcher = matchingDescriptor(img1_descriptors, img2_descriptors, DESCRIPTORMATCHER);
         System.out.println("Number of Matches : " + matcher.rows());
 
-        long endTime1 = new Date().getTime();
-        long timeElapsed1 = endTime1 - startTime;
-//      //Display matches
-//        Mat imgMatches = new Mat();
-//        Features2d.drawMatches(img1, keypoints1, img2, keypoints2, matcher, imgMatches);
-//        displayImageIJ("Matches",imgMatches);
+        Mat img1_keypoints = new Mat();
+        Mat img2_keypoints = new Mat();
+        Mat img1_img2_matches = new Mat();
+        Features2d.drawKeypoints(img1, keypoints1, img1_keypoints);
+        Features2d.drawKeypoints(img2, keypoints2, img2_keypoints);
+        Features2d.drawMatches(img1, keypoints1, img2, keypoints2, matcher, img1_img2_matches);
+//        Imgcodecs.imwrite("/home/nolwenngueguen/Téléchargements/ImagesTest/ImagesPNG/img1Keypoints.tif", img1_keypoints);
+//        Imgcodecs.imwrite("/home/nolwenngueguen/Téléchargements/ImagesTest/ImagesPNG/img2Keypoints.tif", img2_keypoints);
+//        Imgcodecs.imwrite("/home/nolwenngueguen/Téléchargements/ImagesTest/ImagesPNG/img1img2Matches.tif", img1_img2_matches);
 
         /* 4 - Select and display Good Matches */
         ArrayList<DMatch> good_matchesList = selectGoodMatches(matcher, keypoints1, keypoints2, UMPERMIN, UMPERPIX, INTERVALINMIN);
         System.out.println("Number of Good Matches : " + good_matchesList.size());
 
-//      //Display good matches
-//        Mat imgGoodMatches = drawGoodMatches(img1, img2, keypoints1, keypoints2, good_matchesList);
+        Mat imgGoodMatches = drawGoodMatches(img1, img2, keypoints1, keypoints2, good_matchesList);
 //        displayImageIJ("Good Matches", imgGoodMatches);
+//        Imgcodecs.imwrite("/home/nolwenngueguen/Téléchargements/ImagesTest/ImagesPNG/goodMatches.tif", imgGoodMatches);
 
         /* 5 - Get coordinates of GoodMatches Keypoints */
         ArrayList<Float> img1_keypoints_xCoordinates = getGoodMatchesXCoordinates(keypoints1, good_matchesList,true);
@@ -332,10 +347,7 @@ public class DriftCorrection {
         System.out.println("X variance : " + xVariance);
         System.out.println("Y variance : " + yVariance + "\n");
 
-        long endTime = new Date().getTime();
-        long timeElapsed = endTime - startTime;
-        System.out.println("Duration of matching step in milliseconds : " + timeElapsed1);
-        System.out.println("Total duration in milliseconds : " + timeElapsed);
+//        return new double[]{(double) meanXdisplacement, (double) meanYdisplacement, (double) matcher.rows(), (double) good_matchesList.size()};
     }
 }
 
