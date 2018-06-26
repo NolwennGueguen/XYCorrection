@@ -1,353 +1,460 @@
 package main;
-import ij.ImageJ;
-import ij.ImagePlus;
-import org.opencv.core.*;
+
+import ij.IJ;
+import org.opencv.core.Mat;
 import org.opencv.features2d.DescriptorExtractor;
 import org.opencv.features2d.DescriptorMatcher;
 import org.opencv.features2d.FeatureDetector;
-import org.opencv.features2d.Features2d;
-import org.opencv.imgcodecs.Imgcodecs;
-import org.opencv.imgproc.Imgproc;
 
-import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.nio.ByteBuffer;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
-
-import static org.opencv.features2d.Features2d.NOT_DRAW_SINGLE_POINTS;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.*;
 
 public class DriftCorrection {
+    //Set default parameters
+    public static final double umPerStep = 0;
+    public static final String driftCalcul = "Mean";
 
-    public static final double UMPERMIN = 3000;
-    public static final double INTERVALINMIN = 30;
-    public static final double UMPERPIX = 0.065;
-    public static final Integer DETECTORALGO = FeatureDetector.BRISK;
-    public static final Integer DESCRIPTOREXTRACTOR = DescriptorExtractor.ORB;
-    public static final Integer DESCRIPTORMATCHER = DescriptorMatcher.FLANNBASED;
+    //Global variables
+    public static final double calibration = 9.2593;
+    public static final double intervalInMin = 2; //120000/60000;
+    public static final String savingPath = "/home/dataNolwenn/Résultats/2018-04-11_AF/ImagesTest/";
+    public static final String algoToUseMultiple = "AKAZEBRISK";
 
-    public static Mat readImage(String pathOfImage) {
-        Mat img = Imgcodecs.imread(pathOfImage, CvType.CV_16UC1);
-        Mat img1 = new Mat(img.cols(), img.rows(), CvType.CV_8UC1);
-        img.convertTo(img1, CvType.CV_8UC1, 0.00390625);
-        Mat img2 = equalizeImages(img1);
-        return img2;
-    }
+    public static void main (String[] args) {
+        //Load openCv Library, required besides imports
+        System.load("/home/nolwenngueguen/Téléchargements/opencv-3.4.0/build/lib/libopencv_java340.so");
 
-    private static Mat equalizeImages(Mat img) {
-        Mat imgEqualized = new Mat(img.cols(), img.rows(), img.type());
-        Imgproc.equalizeHist(img, imgEqualized);
-        return imgEqualized;
-    }
+        long startTime = new Date().getTime();
 
-    public static MatOfKeyPoint findKeypoints(Mat img, int detectorType) {
-        MatOfKeyPoint keypoints = new MatOfKeyPoint();
-        FeatureDetector featureDetector = FeatureDetector.create(detectorType);
-        featureDetector.detect(img, keypoints);
-        return keypoints;
-    }
+        //Load images
+//        String imgDir = System.getProperty("user.dir") + "/src/main/ressources";
+//        Mat referenceImage = DriftCalculation.readImage(imgDir + "/4-21.tif");
+//        Mat targetImage = DriftCalculation.readImage(imgDir + "/6-21.tif");
+        Mat referenceImage = DriftCalculation.readImage(savingPath + "Pos1_T1_Z14_Ref.tif");
+        Mat targetImage = DriftCalculation.readImage(savingPath + "Pos1_T1_Z14_Target.tif");
 
-    public static Mat calculDescriptors(Mat img, MatOfKeyPoint keypoints, int descriptorType) {
-        Mat img_descript = new Mat();
-        DescriptorExtractor extractor = DescriptorExtractor.create(descriptorType);
-        extractor.compute(img, keypoints, img_descript);
-        return img_descript;
-    }
 
-    public static MatOfDMatch matchingDescriptor(Mat img1_calcul_descriptors, Mat img2_calcul_descriptors, int descriptorMatcherType) {
-        MatOfDMatch matcher = new MatOfDMatch();
-        DescriptorMatcher matcherDescriptor = DescriptorMatcher.create(descriptorMatcherType);
-        Mat img1_descriptor = convertMatDescriptorToCV32F(img1_calcul_descriptors);
-        Mat img2_descriptor = convertMatDescriptorToCV32F(img2_calcul_descriptors);
-        matcherDescriptor.match(img1_descriptor, img2_descriptor, matcher);
-        return matcher;
-    }
+        //Define fileName
+        String fileName = "Pos1" + driftCalcul + algoToUseMultiple;
 
-    //Calculate distance (in pixels) between each pair of points :
-    private static ArrayList<Double> getDistances(MatOfDMatch matcher, MatOfKeyPoint keyPoint1, MatOfKeyPoint keyPoint2) {
-        DMatch[] matcherArray = matcher.toArray();
-        KeyPoint[] keypoint1Array = keyPoint1.toArray();
-        KeyPoint[] keypoint2Array = keyPoint2.toArray();
-        ArrayList<Double> listOfDistances = new ArrayList<>();
-        double x;
-        double x1;
-        double x2;
-        double y;
-        double y1;
-        double y2;
-        double d;
-        for (DMatch aMatcherArray : matcherArray) {
-            int dmQuery = aMatcherArray.queryIdx;
-            int dmTrain = aMatcherArray.trainIdx;
+        double xCorrection = 0;
+        double yCorrection = 0;
+        double threshold = 0;
 
-            x1 = keypoint1Array[dmQuery].pt.x;
-            x2 = keypoint2Array[dmTrain].pt.x;
-            x = x2 - x1;
+        double[] xyDriftsBRISKORB = new double[13];
+        double[] xyDriftsORBORB = new double[13];
+        double[] xyDriftsORBBRISK = new double[13];
+        double[] xyDriftsBRISKBRISK = new double[13];
+        double[] xyDriftsAKAZEBRISK = new double[13];
+        double[] xyDriftsAKAZEORB = new double[13];
+        double[] xyDriftsAKAZEAKAZE = new double[13];
 
-            y1 = keypoint1Array[dmQuery].pt.y;
-            y2 = keypoint2Array[dmTrain].pt.y;
-            y = y2 - y1;
+        List<double[]> listOfDrifts = calculateMultipleXYDrifts(targetImage, referenceImage, FeatureDetector.BRISK, FeatureDetector.ORB,
+                FeatureDetector.AKAZE, DescriptorExtractor.BRISK, DescriptorExtractor.ORB,
+                DescriptorExtractor.AKAZE, DescriptorMatcher.FLANNBASED);
+        if (listOfDrifts.size() < 7) {
+            xCorrection = 0;
+            yCorrection = 0;
+            System.out.println("List of results empty");
+        } else {
+            xyDriftsBRISKORB = listOfDrifts.get(0);
+            xyDriftsORBORB = listOfDrifts.get(1);
+            xyDriftsORBBRISK = listOfDrifts.get(2);
+            xyDriftsBRISKBRISK = listOfDrifts.get(3);
+            xyDriftsAKAZEBRISK = listOfDrifts.get(4);
+            xyDriftsAKAZEORB = listOfDrifts.get(5);
+            xyDriftsAKAZEAKAZE = listOfDrifts.get(6);
 
-            d = Math.hypot(x, y);
-            listOfDistances.add(d);
+            double[] drifts = new double[13];
+
+            switch (algoToUseMultiple) {
+                case "BRISKORB":
+                    drifts = xyDriftsBRISKORB;
+                    break;
+                case "ORBORB":
+                    drifts = xyDriftsORBORB;
+                    break;
+                case "ORBBRISK":
+                    drifts = xyDriftsORBBRISK;
+                    break;
+                case "BRISKBRISK":
+                    drifts = xyDriftsBRISKBRISK;
+                    break;
+                case "AKAZEBRISK":
+                    drifts = xyDriftsAKAZEBRISK;
+                    break;
+                case "AKAZEORB":
+                    drifts = xyDriftsAKAZEORB;
+                    break;
+                case "AKAZEAKAZE":
+                    drifts = xyDriftsAKAZEAKAZE;
+                    break;
+                default:
+                    IJ.error("Unknown method of algorithm combination");
+            }
+
+            switch (driftCalcul) {
+                case "Mean":
+                    xCorrection = drifts[0];
+                    yCorrection = drifts[1];
+                    threshold = 0.05;
+                    break;
+                case "Median":
+                    xCorrection = drifts[5];
+                    yCorrection = drifts[6];
+                    threshold = 0.05;
+                    break;
+                case "Minimum Distance":
+                    xCorrection = drifts[7];
+                    yCorrection = drifts[8];
+                    threshold = 0.001;
+                    break;
+                case "Harmonic Mean":
+                    xCorrection = drifts[9];
+                    yCorrection = drifts[10];
+                    threshold = 0.05;
+                    break;
+                default:
+                    IJ.error("Unknown method of correction");
+            }
+            System.out.println("Correction applied : " + algoToUseMultiple.toString() + " with " + driftCalcul.toString());
         }
-        return listOfDistances;
-    }
 
-    public  static ArrayList<DMatch> selectGoodMatches(MatOfDMatch matcher, MatOfKeyPoint keyPoint1, MatOfKeyPoint keyPoint2, double umPerMin, double umPerPixel, double intervalInMin) {
-        DMatch[] matcherArray = matcher.toArray();
-        ArrayList<Double> listOfDistances = getDistances(matcher, keyPoint1, keyPoint2);
-        ArrayList<DMatch> good_matchesList = new ArrayList<>();
-        for (int i = 0; i < matcherArray.length; i++) {
-            if (listOfDistances.get(i) <= (umPerMin/intervalInMin)){ // /umPerPixel) * intervalInMin) {
-                good_matchesList.add(matcherArray[i]);
+        if (Double.isNaN(xCorrection) || Double.isNaN(yCorrection)) {
+            xCorrection = 0;
+            yCorrection = 0;
+            System.out.println("X or Y Correction NaN");
+        } else {
+            if (Math.abs(xCorrection) < threshold) {
+                xCorrection = 0;
+                System.out.println("X Correction < Threshold");
+            }
+            if (Math.abs(yCorrection) < threshold) {
+                yCorrection = 0;
+                System.out.println("Y Correction < Threshold");
             }
         }
-        return good_matchesList;
+
+        System.out.println("X Correction : " + xCorrection);
+        System.out.println("Y Correction : " + yCorrection);
+
+        long endTime = new Date().getTime();
+        long acquisitionTimeElapsed = endTime - startTime;
+        System.out.println("Calculation duration in ms : " + acquisitionTimeElapsed);
+
+        writeMultipleOutput(acquisitionTimeElapsed, fileName, xCorrection, yCorrection,
+                xyDriftsBRISKORB, xyDriftsORBORB, xyDriftsORBBRISK, xyDriftsBRISKBRISK,
+                xyDriftsAKAZEBRISK, xyDriftsAKAZEORB, xyDriftsAKAZEAKAZE);
+
+
     }
 
-    private static ArrayList<Float> getGoodMatchesXCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList, Boolean isReferenceImage) {
-        ArrayList<Float> img_xList = new ArrayList<>();
-        KeyPoint[] keypointsArray1 = keypoints.toArray();
-        float x;
-        int id;
-        for (DMatch aGood_matchesList : good_matchesList) {
-            if (isReferenceImage) {
-                id = aGood_matchesList.queryIdx;
-            } else {
-                id = aGood_matchesList.trainIdx;
+
+    public static List<double[]> calculateMultipleXYDrifts(Mat currentImgMat, Mat imgRef_Mat, Integer detectorAlgo1, Integer detectorAlgo2, Integer detectorAlgo3,
+                                                           Integer descriptorExtractor1, Integer descriptorExtractor2, Integer descriptorExtractor3,
+                                                           Integer descriptorMatcher){
+        int nThread = Runtime.getRuntime().availableProcessors() - 2;
+        ExecutorService es = Executors.newFixedThreadPool(nThread);
+        Future[] jobs = new Future[7];
+        //BRISK-ORB
+        jobs[0] = es.submit(new ThreadAttribution(imgRef_Mat, currentImgMat, calibration,
+                intervalInMin, umPerStep, detectorAlgo1, descriptorExtractor2, descriptorMatcher));
+        //ORB-ORB
+        jobs[1] = es.submit(new ThreadAttribution(imgRef_Mat, currentImgMat, calibration,
+                intervalInMin, umPerStep, detectorAlgo2, descriptorExtractor2, descriptorMatcher));
+        //ORB-BRISK
+        jobs[2] = es.submit(new ThreadAttribution(imgRef_Mat, currentImgMat, calibration,
+                intervalInMin, umPerStep, detectorAlgo2, descriptorExtractor1, descriptorMatcher));
+        //BRISK-BRISK
+        jobs[3] = es.submit(new ThreadAttribution(imgRef_Mat, currentImgMat, calibration,
+                intervalInMin, umPerStep, detectorAlgo1, descriptorExtractor1, descriptorMatcher));
+        //AKAZE-BRISK
+        jobs[4] = es.submit(new ThreadAttribution(imgRef_Mat, currentImgMat, calibration,
+                intervalInMin, umPerStep, detectorAlgo3, descriptorExtractor1, descriptorMatcher));
+        //AKAZE-ORB
+        jobs[5] = es.submit(new ThreadAttribution(imgRef_Mat, currentImgMat, calibration,
+                intervalInMin, umPerStep, detectorAlgo3, descriptorExtractor2, descriptorMatcher));
+        //AKAZE-AKAZE
+        jobs[6] = es.submit(new ThreadAttribution(imgRef_Mat, currentImgMat, calibration,
+                intervalInMin, umPerStep, detectorAlgo3, descriptorExtractor3, descriptorMatcher));
+
+        List<double[]> drifts = new ArrayList<>();
+        double[] currentRes = null;
+        int algoIndex = -1;
+        try {
+            for (int i = 0; i < jobs.length; i++) {
+                currentRes = (double[]) jobs[i].get();
+                algoIndex = i;
+                drifts.add(i, currentRes);
             }
-            x = (float) keypointsArray1[id].pt.x;
-            img_xList.add(x);
-        }
-        return img_xList;
-    }
-
-    private static ArrayList<Float> getGoodMatchesYCoordinates(MatOfKeyPoint keypoints, ArrayList<DMatch> good_matchesList, Boolean isReferenceImage) {
-        ArrayList<Float> img_yList = new ArrayList<>();
-        KeyPoint[] keypointsArray1 = keypoints.toArray();
-        float y;
-        int id;
-        for (DMatch aGood_matchesList : good_matchesList) {
-            if (isReferenceImage) {
-                id = aGood_matchesList.queryIdx;
-            } else {
-                id = aGood_matchesList.trainIdx;
-            }
-            y = (float) keypointsArray1[id].pt.y;
-            img_yList.add(y);
-        }
-        return img_yList;
-    }
-
-    private static Float getMeanXDisplacement(ArrayList<Float> img1_xCoordinates, ArrayList<Float> img2_xCoordinates) {
-        int totalNumberOfX = img1_xCoordinates.size();
-        float sumXDistancesCoordinates = 0;
-        float meanXDifferencesCoordinates;
-        for (int i = 0; i < img1_xCoordinates.size(); i++) {
-            float xDistance = img2_xCoordinates.get(i) - img1_xCoordinates.get(i);
-            sumXDistancesCoordinates += xDistance;
-        }
-        meanXDifferencesCoordinates = sumXDistancesCoordinates/totalNumberOfX;
-        return meanXDifferencesCoordinates;
-    }
-
-    private static Float getMeanYDisplacement(ArrayList<Float> img1_yCoordinates, ArrayList<Float> img2_yCoordinates) {
-        int totalNumberOfY = img1_yCoordinates.size();
-        float sumYDistancesCoordinates = 0;
-        float meanYDifferencesCoordinates;
-        for (int i = 0; i < img1_yCoordinates.size(); i++) {
-            float yDifference = img2_yCoordinates.get(i) - img1_yCoordinates.get(i);
-            sumYDistancesCoordinates += yDifference;
-        }
-        meanYDifferencesCoordinates = sumYDistancesCoordinates/totalNumberOfY;
-        return meanYDifferencesCoordinates;
-    }
-
-    private static Float getXVariance(ArrayList<Float> img1_xCoordinates, ArrayList<Float> img2_xCoordinates, Float meanXDisplacement) {
-        int totalNumberOfX = img1_xCoordinates.size();
-        float sumDiffSquared = 0;
-        float varianceX;
-        for (int i = 0; i < img1_xCoordinates.size(); i++) {
-            float xDiff = img2_xCoordinates.get(i) - img1_xCoordinates.get(i);
-            sumDiffSquared += Math.pow(xDiff - meanXDisplacement, 2);
-        }
-        varianceX = sumDiffSquared/totalNumberOfX;
-        return  varianceX;
-    }
-
-    private static Float getYVariance(ArrayList<Float> img1_yCoordinates, ArrayList<Float> img2_yCoordinates, Float meanYDisplacement) {
-        int totalNumberOfY = img1_yCoordinates.size();
-        float sumDiffSquared = 0;
-        float varianceY;
-        for (int i = 0; i < img1_yCoordinates.size(); i++) {
-            float yDiff = img2_yCoordinates.get(i) - img1_yCoordinates.get(i);
-            sumDiffSquared += Math.pow(yDiff - meanYDisplacement, 2);
-        }
-        varianceY = sumDiffSquared/totalNumberOfY;
-        return varianceY;
-    }
-
-    // CONVERTERS
-    // Convert 8bits 3 Channels Mat images to Buffered
-    private static BufferedImage convertMatCV8UC3ToBufferedImage(Mat m) {
-        int type = BufferedImage.TYPE_3BYTE_BGR;
-        int bufferSize = m.channels() * m.cols() * m.rows();
-        byte[] b = new byte[bufferSize];
-        m.get(0, 0 ,b);
-        BufferedImage img = new BufferedImage(m.cols(), m.rows(), type);
-        img.getRaster().setDataElements(0, 0, m.cols(), m.rows(), b);
-        return img;
-    }
-    // Convert 8bits 1 Channel Mat images to Buffered
-    private static BufferedImage convertMatCV8UC1ToBufferedImage(Mat m) {
-        int type = BufferedImage.TYPE_BYTE_GRAY;
-        int bufferSize = m.channels() * m.cols() * m.rows();
-        byte[] b = new byte[bufferSize];
-        m.get(0, 0 ,b);
-        BufferedImage img = new BufferedImage(m.cols(), m.rows(), type);
-        img.getRaster().setDataElements(0, 0, m.cols(), m.rows(), b);
-        return img;
-    }
-    // Convert 64bits Mat images to Buffered
-    private static BufferedImage convertMatCV64ToBufferedImage(Mat m) {
-        int type = BufferedImage.TYPE_3BYTE_BGR;
-        int bufferSize = m.channels() * m.cols() * m.rows();
-        double[] d = new double[bufferSize];
-        m.get(0, 0, d);
-        BufferedImage img = new BufferedImage(m.cols(), m.rows(), type);
-        byte[] b = toByteArray(d);
-        img.getRaster().getDataElements(0, 0, m.cols(), m.rows(), b);
-        return img;
-    }
-
-    // Convert double Array to byte Array
-    //https://stackoverflow.com/questions/15533854/converting-byte-array-to-double-array
-    private static byte[] toByteArray(double[] doubleArray){
-        int times = Double.SIZE / Byte.SIZE;
-        byte[] bytes = new byte[doubleArray.length * times];
-        for(int i=0;i<doubleArray.length;i++){
-            ByteBuffer.wrap(bytes, i*times, times).putDouble(doubleArray[i]);
-        }
-        return bytes;
-    }
-
-    //Convert Descriptors to CV_32F
-    private static  Mat convertMatDescriptorToCV32F(Mat descriptor) {
-        if (descriptor.type() != CvType.CV_32F) {
-            descriptor.convertTo(descriptor, CvType.CV_32F);
-        }
-        return descriptor;
-    }
-
-    //Convert DMatch ArrayList to Mat
-    private static Mat listToMat(ArrayList<DMatch> list) {
-        MatOfDMatch mat = new MatOfDMatch();
-        DMatch[] array = list.toArray(new DMatch[list.size()]);
-        mat.fromArray(array);
-        return mat;
-    }
-
-    //Display images with ImageJ, giving a title to image
-    static void displayImageIJ(String titleOfImage, Mat img) {
-        ImagePlus imgp = new ImagePlus();
-        if (img.type() == CvType.CV_8UC3) {imgp = new ImagePlus(titleOfImage, convertMatCV8UC3ToBufferedImage(img));}
-        else if (img.type() == CvType.CV_64FC1) {imgp = new ImagePlus(titleOfImage, convertMatCV64ToBufferedImage(img));}
-        else if (img.type() == CvType.CV_8UC1) {imgp = new ImagePlus(titleOfImage, convertMatCV8UC1ToBufferedImage(img));}
-        else{
+        } catch (InterruptedException | ExecutionException e) {
             try {
-                throw new Exception("Unknown image type");
-            } catch (Exception e) {
+                for (double d : currentRes){
+                    System.out.println("Error in algo " + algoIndex + "_" + d);
+                }
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+        }
+        es.shutdown();
+        try{
+            es.awaitTermination(5, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return drifts;
+    }
+
+    public static void writeMultipleOutput(long acquisitionDuration, String fileName, double xCorrection, double yCorrection, double[] xyDriftsBRISKORB,
+                                           double[] xyDriftsORBORB, double[] xyDriftsORBBRISK, double[] xyDriftsBRISKBRISK,
+                                           double[] xyDriftsAKAZEAKAZE, double[] xyDriftsAKAZEBRISK, double[] xyDriftsAKAZEORB) {
+
+        File f1 = new File(savingPath + fileName + "_Stats" + ".csv");
+
+        String[] headersOfFile = new String[]{"xCorrection", "yCorrection", "calculationDuration(ms)",
+                "meanXdisplacementBRISKORB", "meanYdisplacementBRISKORB", "meanXdisplacementORBORB", "meanYdisplacementORBORB",
+                "meanXdisplacementORBBRISK", "meanYdisplacementORBBRISK", "meanXdisplacementBRISKBRISK", "meanYdisplacementBRISKBRISK",
+                "meanXdisplacementAKAZEBRISK", "meanYdisplacementAKAZEBRISK", "meanXdisplacementAKAZEORB", "meanYdisplacementAKAZEORB",
+                "meanXdisplacementAKAZEAKAZE", "meanYdisplacementAKAZEAKAZE",
+
+                "numberOfMatchesBRISKORB", "numberOfMatchesORBORB", "numberOfMatchesORBBRISK", "numberOfMatchesBRISKBRISK",
+                "numberOfMatchesAKAZEBRISK", "numberOfMatchesAKAZEORB", "numberOfMatchesAKAZEAKAZE",
+
+                "numberOfGoodMatchesBRISKORB", "numberOfGoodMatchesORBORB", "numberOfGoodMatchesORBBRISK",
+                "numberOfGoodMatchesBRISKBRISK", "numberOfGoodMatchesAKAZEBRISK", "numberOfGoodMatchesAKAZEORB",
+                "numberOfGoodMatchesAKAZEAKAZE",
+
+                "algorithmDurationBRISKORB(ms)", "algorithmDurationORBORB(ms)", "algorithmDurationORBBRISK(ms)",
+                "algorithmDurationBRISKBRISK(ms)", "algorithmDurationAKAZEBRISK(ms)", "algorithmDurationAKAZEORB(ms)",
+                "algorithmDurationAKAZEAKAZE(ms)",
+
+                "medianXdisplacementBRISKORB", "medianYdisplacementBRISKORB", "medianXdisplacementORBORB", "medianYdisplacementORBORB",
+                "medianXdisplacementORBBRISK", "medianYdisplacementORBBRISK", "medianXdisplacementBRISKBRISK", "medianYdisplacementBRISKBRISK",
+                "medianXdisplacementAKAZEBRISK", "medianYdisplacementAKAZEBRISK", "medianXdisplacementAKAZEORB", "medianYdisplacementAKAZEORB",
+                "medianXdisplacementAKAZEAKAZE", "medianYdisplacementAKAZEAKAZE",
+
+
+                "minXdisplacementBRISKORB", "minYdisplacementBRISKORB", "minXdisplacementORBORB", "minYdisplacementORBORB",
+                "minXdisplacementORBBRISK", "minYdisplacementORBBRISK", "minXdisplacementBRISKBRISK", "minYdisplacementBRISKBRISK",
+                "minXdisplacementAKAZEBRISK", "minYdisplacementAKAZEBRISK", "minXdisplacementAKAZEORB", "minYdisplacementAKAZEORB",
+                "minXdisplacementAKAZEAKAZE", "minYdisplacementAKAZEAKAZE",
+
+                "harmonicMeanXdisplacementBRISKORB", "harmonicMeanYdisplacementBRISKORB", "harmonicMeanXdisplacementORBORB", "harmonicMeanYdisplacementORBORB",
+                "harmonicMeanXdisplacementORBBRISK", "harmonicMeanYdisplacementORBBRISK", "harmonicMeanXdisplacementBRISKBRISK", "harmonicMeanYdisplacementBRISKBRISK",
+                "harmonicMeanXdisplacementAKAZEBRISK", "harmonicMeanYdisplacementAKAZEBRISK", "harmonicMeanXdisplacementAKAZEORB", "harmonicMeanYdisplacementAKAZEORB",
+                "harmonicMeanXdisplacementAKAZEAKAZE", "harmonicMeanYdisplacementAKAZEAKAZE"
+
+        };
+
+        double meanXdisplacementBRISKORB = xyDriftsBRISKORB[0];
+        double meanYdisplacementBRISKORB = xyDriftsBRISKORB[1];
+        double numberOfMatchesBRISKORB = xyDriftsBRISKORB[2];
+        double numberOfGoodMatchesBRISKORB = xyDriftsBRISKORB[3];
+        double algorithmDurationBRISKORB = xyDriftsBRISKORB[4];
+        double medianXDisplacementBRISKORB = xyDriftsBRISKORB[5];
+        double medianYDisplacementBRISKORB = xyDriftsBRISKORB[6];
+        double minXDisplacementBRISKORB = xyDriftsBRISKORB[7];
+        double minYDisplacementBRISKORB = xyDriftsBRISKORB[8];
+        double harmonicMeanXDisplacementBRISKORB = xyDriftsBRISKORB[9];
+        double harmonicMeanYDisplacementBRISKORB = xyDriftsBRISKORB[10];
+
+        double meanXdisplacementORBORB = xyDriftsORBORB[0];
+        double meanYdisplacementORBORB = xyDriftsORBORB[1];
+        double numberOfMatchesORBORB = xyDriftsORBORB[2];
+        double numberOfGoodMatchesORBORB = xyDriftsORBORB[3];
+        double algorithmDurationORBORB = xyDriftsORBORB[4];
+        double medianXDisplacementORBORB = xyDriftsORBORB[5];
+        double medianYDisplacementORBORB = xyDriftsORBORB[6];
+        double minXDisplacementORBORB = xyDriftsORBORB[7];
+        double minYDisplacementORBORB = xyDriftsORBORB[8];
+        double harmonicMeanXDisplacementORBORB = xyDriftsORBORB[9];
+        double harmonicMeanYDisplacementORBORB = xyDriftsORBORB[10];
+
+        double meanXdisplacementORBBRISK = xyDriftsORBBRISK[0];
+        double meanYdisplacementORBBRISK = xyDriftsORBBRISK[1];
+        double numberOfMatchesORBBRISK = xyDriftsORBBRISK[2];
+        double numberOfGoodMatchesORBBRISK = xyDriftsORBBRISK[3];
+        double algorithmDurationORBBRISK = xyDriftsORBBRISK[4];
+        double medianXDisplacementORBBRISK = xyDriftsORBBRISK[5];
+        double medianYDisplacementORBBRISK = xyDriftsORBBRISK[6];
+        double minXDisplacementORBBRISK = xyDriftsORBBRISK[7];
+        double minYDisplacementORBBRISK = xyDriftsORBBRISK[8];
+        double harmonicMeanXDisplacementORBBRISK = xyDriftsORBBRISK[9];
+        double harmonicMeanYDisplacementORBBRISK = xyDriftsORBBRISK[10];
+
+        double meanXdisplacementBRISKBRISK = xyDriftsBRISKBRISK[0];
+        double meanYdisplacementBRISKBRISK = xyDriftsBRISKBRISK[1];
+        double numberOfMatchesBRISKBRISK = xyDriftsBRISKBRISK[2];
+        double numberOfGoodMatchesBRISKBRISK = xyDriftsBRISKBRISK[3];
+        double algorithmDurationBRISKBRISK = xyDriftsBRISKBRISK[4];
+        double medianXDisplacementBRISKBRISK = xyDriftsBRISKBRISK[5];
+        double medianYDisplacementBRISKBRISK = xyDriftsBRISKBRISK[6];
+        double minXDisplacementBRISKBRISK = xyDriftsBRISKBRISK[7];
+        double minYDisplacementBRISKBRISK = xyDriftsBRISKBRISK[8];
+        double harmonicMeanXDisplacementBRISKBRISK = xyDriftsBRISKBRISK[9];
+        double harmonicMeanYDisplacementBRISKBRISK = xyDriftsBRISKBRISK[10];
+
+        double meanXdisplacementAKAZEBRISK = xyDriftsAKAZEBRISK[0];
+        double meanYdisplacementAKAZEBRISK = xyDriftsAKAZEBRISK[1];
+        double numberOfMatchesAKAZEBRISK = xyDriftsAKAZEBRISK[2];
+        double numberOfGoodMatchesAKAZEBRISK = xyDriftsAKAZEBRISK[3];
+        double algorithmDurationAKAZEBRISK = xyDriftsAKAZEBRISK[4];
+        double medianXDisplacementAKAZEBRISK = xyDriftsAKAZEBRISK[5];
+        double medianYDisplacementAKAZEBRISK = xyDriftsAKAZEBRISK[6];
+        double minXDisplacementAKAZEBRISK = xyDriftsAKAZEBRISK[7];
+        double minYDisplacementAKAZEBRISK = xyDriftsAKAZEBRISK[8];
+        double harmonicMeanXDisplacementAKAZEBRISK = xyDriftsAKAZEBRISK[9];
+        double harmonicMeanYDisplacementAKAZEBRISK = xyDriftsAKAZEBRISK[10];
+
+        double meanXdisplacementAKAZEORB = xyDriftsAKAZEORB[0];
+        double meanYdisplacementAKAZEORB = xyDriftsAKAZEORB[1];
+        double numberOfMatchesAKAZEORB = xyDriftsAKAZEORB[2];
+        double numberOfGoodMatchesAKAZEORB = xyDriftsAKAZEORB[3];
+        double algorithmDurationAKAZEORB = xyDriftsAKAZEORB[4];
+        double medianXDisplacementAKAZEORB = xyDriftsAKAZEORB[5];
+        double medianYDisplacementAKAZEORB = xyDriftsAKAZEORB[6];
+        double minXDisplacementAKAZEORB = xyDriftsAKAZEORB[7];
+        double minYDisplacementAKAZEORB = xyDriftsAKAZEORB[8];
+        double harmonicMeanXDisplacementAKAZEORB = xyDriftsAKAZEORB[9];
+        double harmonicMeanYDisplacementAKAZEORB = xyDriftsAKAZEORB[10];
+
+        double meanXdisplacementAKAZEAKAZE = xyDriftsAKAZEAKAZE[0];
+        double meanYdisplacementAKAZEAKAZE = xyDriftsAKAZEAKAZE[1];
+        double numberOfMatchesAKAZEAKAZE = xyDriftsAKAZEAKAZE[2];
+        double numberOfGoodMatchesAKAZEAKAZE = xyDriftsAKAZEAKAZE[3];
+        double algorithmDurationAKAZEAKAZE = xyDriftsAKAZEAKAZE[4];
+        double medianXDisplacementAKAZEAKAZE = xyDriftsAKAZEAKAZE[5];
+        double medianYDisplacementAKAZEAKAZE = xyDriftsAKAZEAKAZE[6];
+        double minXDisplacementAKAZEAKAZE = xyDriftsAKAZEAKAZE[7];
+        double minYDisplacementAKAZEAKAZE = xyDriftsAKAZEAKAZE[8];
+        double harmonicMeanXDisplacementAKAZEAKAZE = xyDriftsAKAZEAKAZE[9];
+        double harmonicMeanYDisplacementAKAZEAKAZE = xyDriftsAKAZEAKAZE[10];
+
+        FileWriter fw;
+        if (!f1.exists()) {
+            try {
+                f1.createNewFile();
+                fw = new FileWriter(f1, true);
+                fw.write(String.join(",", headersOfFile) + System.lineSeparator());
+                fw.write(xCorrection + "," + yCorrection + "," + acquisitionDuration + ","
+
+                        + meanXdisplacementBRISKORB + "," + meanYdisplacementBRISKORB + "," + meanXdisplacementORBORB + "," + meanYdisplacementORBORB + ","
+                        + meanXdisplacementORBBRISK + "," + meanYdisplacementORBBRISK + "," + meanXdisplacementBRISKBRISK + "," + meanYdisplacementBRISKBRISK + ","
+                        + meanXdisplacementAKAZEBRISK + "," + meanYdisplacementAKAZEBRISK + "," + meanXdisplacementAKAZEORB + "," + meanYdisplacementAKAZEORB + ","
+                        + meanXdisplacementAKAZEAKAZE + "," + meanYdisplacementAKAZEAKAZE + ","
+
+                        + numberOfMatchesBRISKORB + "," + numberOfMatchesORBORB + "," + numberOfMatchesORBBRISK + "," + numberOfMatchesBRISKBRISK + ","
+                        + numberOfMatchesAKAZEBRISK + "," + numberOfMatchesAKAZEORB + "," + numberOfMatchesAKAZEAKAZE + ","
+
+                        + numberOfGoodMatchesBRISKORB + "," + numberOfGoodMatchesORBORB + "," + numberOfGoodMatchesORBBRISK + ","
+                        + numberOfGoodMatchesBRISKBRISK + "," + numberOfGoodMatchesAKAZEBRISK + "," + numberOfGoodMatchesAKAZEORB + ","
+                        + numberOfGoodMatchesAKAZEAKAZE + ","
+
+                        + algorithmDurationBRISKORB + "," + algorithmDurationORBORB + "," + algorithmDurationORBBRISK + ","
+                        + algorithmDurationBRISKBRISK + "," + algorithmDurationAKAZEBRISK + "," + algorithmDurationAKAZEORB + ","
+                        + algorithmDurationAKAZEAKAZE + ","
+
+                        + medianXDisplacementBRISKORB + "," + medianYDisplacementBRISKORB + "," + medianXDisplacementORBORB + "," + medianYDisplacementORBORB + ","
+                        + medianXDisplacementORBBRISK + "," + medianYDisplacementORBBRISK + "," + medianXDisplacementBRISKBRISK + "," + medianYDisplacementBRISKBRISK + ","
+                        + medianXDisplacementAKAZEBRISK + "," + medianYDisplacementAKAZEBRISK + "," + medianXDisplacementAKAZEORB + "," + medianYDisplacementAKAZEORB + ","
+                        + medianXDisplacementAKAZEAKAZE + "," + medianYDisplacementAKAZEAKAZE + ","
+
+                        + minXDisplacementBRISKORB + "," + minYDisplacementBRISKORB + "," + minXDisplacementORBORB + "," + minYDisplacementORBORB + ","
+                        + minXDisplacementORBBRISK + "," + minYDisplacementORBBRISK + "," + minXDisplacementBRISKBRISK + "," + minYDisplacementBRISKBRISK + ","
+                        + minXDisplacementAKAZEBRISK + "," + minYDisplacementAKAZEBRISK + "," + minXDisplacementAKAZEORB + "," + minYDisplacementAKAZEORB + ","
+                        + minXDisplacementAKAZEAKAZE + "," + minYDisplacementAKAZEAKAZE + ","
+
+                        + harmonicMeanXDisplacementBRISKORB + "," + harmonicMeanYDisplacementBRISKORB + "," + harmonicMeanXDisplacementORBORB + "," + harmonicMeanYDisplacementORBORB + ","
+                        + harmonicMeanXDisplacementORBBRISK + "," + harmonicMeanYDisplacementORBBRISK + "," + harmonicMeanXDisplacementBRISKBRISK + "," + harmonicMeanYDisplacementBRISKBRISK + ","
+                        + harmonicMeanXDisplacementAKAZEBRISK + "," + harmonicMeanYDisplacementAKAZEBRISK + "," + harmonicMeanXDisplacementAKAZEORB + "," + harmonicMeanYDisplacementAKAZEORB + ","
+                        + harmonicMeanXDisplacementAKAZEAKAZE + "," + harmonicMeanYDisplacementAKAZEAKAZE
+
+                        + System.lineSeparator());
+                fw.close();
+            } catch (IOException e) {
                 e.printStackTrace();
             }
+        } else {
+            try {
+                FileWriter fw1 = new FileWriter(f1, true);
+                fw1.write(xCorrection + "," + yCorrection + "," + acquisitionDuration + ","
+
+                        + meanXdisplacementBRISKORB + "," + meanYdisplacementBRISKORB + "," + meanXdisplacementORBORB + "," + meanYdisplacementORBORB + ","
+                        + meanXdisplacementORBBRISK + "," + meanYdisplacementORBBRISK + "," + meanXdisplacementBRISKBRISK + "," + meanYdisplacementBRISKBRISK + ","
+                        + meanXdisplacementAKAZEBRISK + "," + meanYdisplacementAKAZEBRISK + "," + meanXdisplacementAKAZEORB + "," + meanYdisplacementAKAZEORB + ","
+                        + meanXdisplacementAKAZEAKAZE + "," + meanYdisplacementAKAZEAKAZE + ","
+
+                        + numberOfMatchesBRISKORB + "," + numberOfMatchesORBORB + "," + numberOfMatchesORBBRISK + "," + numberOfMatchesBRISKBRISK + ","
+                        + numberOfMatchesAKAZEBRISK + "," + numberOfMatchesAKAZEORB + "," + numberOfMatchesAKAZEAKAZE + ","
+
+                        + numberOfGoodMatchesBRISKORB + "," + numberOfGoodMatchesORBORB + "," + numberOfGoodMatchesORBBRISK + ","
+                        + numberOfGoodMatchesBRISKBRISK + "," + numberOfGoodMatchesAKAZEBRISK + "," + numberOfGoodMatchesAKAZEORB + ","
+                        + numberOfGoodMatchesAKAZEAKAZE + ","
+
+                        + algorithmDurationBRISKORB + "," + algorithmDurationORBORB + "," + algorithmDurationORBBRISK + ","
+                        + algorithmDurationBRISKBRISK + "," + algorithmDurationAKAZEBRISK + "," + algorithmDurationAKAZEORB + ","
+                        + algorithmDurationAKAZEAKAZE + ","
+
+                        + medianXDisplacementBRISKORB + "," + medianYDisplacementBRISKORB + "," + medianXDisplacementORBORB + "," + medianYDisplacementORBORB + ","
+                        + medianXDisplacementORBBRISK + "," + medianYDisplacementORBBRISK + "," + medianXDisplacementBRISKBRISK + "," + medianYDisplacementBRISKBRISK + ","
+                        + medianXDisplacementAKAZEBRISK + "," + medianYDisplacementAKAZEBRISK + "," + medianXDisplacementAKAZEORB + "," + medianYDisplacementAKAZEORB + ","
+                        + medianXDisplacementAKAZEAKAZE + "," + medianYDisplacementAKAZEAKAZE + ","
+
+                        + minXDisplacementBRISKORB + "," + minYDisplacementBRISKORB + "," + minXDisplacementORBORB + "," + minYDisplacementORBORB + ","
+                        + minXDisplacementORBBRISK + "," + minYDisplacementORBBRISK + "," + minXDisplacementBRISKBRISK + "," + minYDisplacementBRISKBRISK + ","
+                        + minXDisplacementAKAZEBRISK + "," + minYDisplacementAKAZEBRISK + "," + minXDisplacementAKAZEORB + "," + minYDisplacementAKAZEORB + ","
+                        + minXDisplacementAKAZEAKAZE + "," + minYDisplacementAKAZEAKAZE + ","
+
+                        + harmonicMeanXDisplacementBRISKORB + "," + harmonicMeanYDisplacementBRISKORB + "," + harmonicMeanXDisplacementORBORB + "," + harmonicMeanYDisplacementORBORB + ","
+                        + harmonicMeanXDisplacementORBBRISK + "," + harmonicMeanYDisplacementORBBRISK + "," + harmonicMeanXDisplacementBRISKBRISK + "," + harmonicMeanYDisplacementBRISKBRISK + ","
+                        + harmonicMeanXDisplacementAKAZEBRISK + "," + harmonicMeanYDisplacementAKAZEBRISK + "," + harmonicMeanXDisplacementAKAZEORB + "," + harmonicMeanYDisplacementAKAZEORB + ","
+                        + harmonicMeanXDisplacementAKAZEAKAZE + "," + harmonicMeanYDisplacementAKAZEAKAZE
+
+                        + System.lineSeparator());
+                fw1.close();
+            } catch(IOException e){
+                e.printStackTrace();
+                System.out.println("Unable to add lines to file");
+            }
         }
-        imgp.show();
     }
 
-    //Draw Goodmatches
-    static Mat drawGoodMatches(Mat img1, Mat img2, MatOfKeyPoint keypoints1, MatOfKeyPoint keypoints2, ArrayList<DMatch> good_matchesList) {
-        Mat good_matches = listToMat(good_matchesList);
-        Mat imgGoodMatches = new Mat();
-        MatOfByte matchesMask = new MatOfByte();
-        Features2d.drawMatches(img1, keypoints1, img2, keypoints2, (MatOfDMatch) good_matches, imgGoodMatches, Scalar.all(-1), Scalar.all(0.5), matchesMask, NOT_DRAW_SINGLE_POINTS);
-        return imgGoodMatches;
-    }
+    //********************************************************************************//
+    //*************************** Class for multithreading ***************************//
+    //********************************************************************************//
+    public static class ThreadAttribution implements Callable<double[]> {
 
-    public static void main (String[] args) { //double[] driftCorrection(Mat img1, Mat img2) {
-//        new ImageJ();
-//        long start = Date.st
-        //Load openCv Library, required besides imports
-        nu.pattern.OpenCV.loadShared();
+        public Mat img1_;
+        public Mat img2_;
+        public double calibration_;
+        public double intervalInMs_;
+        public double umPerStep_;
+        public Integer detectorAlgo_;
+        public Integer descriptorExtractor_;
+        public Integer descriptorMatcher_;
 
-//        //Load images
-//        Mat img1 = null;
-//        Mat img2 = null;
-//        String imgDir = System.getProperty("user.dir") + "/src/main/ressources";
-//        try {
-//            img1 = IO.readImage(imgDir + "/4-21.tif");
-//            img2 = IO.readImage(imgDir + "/6-21.tif");
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+        ThreadAttribution(Mat img1, Mat img2, double calibration, double intervalInMs, double umPerStep,
+                          Integer detectorAlgo, Integer descriptorExtractor, Integer descriptorMatcher) {
+            img1_ = img1;
+            img2_ = img2;
+            calibration_ = calibration;
+            intervalInMs_ = intervalInMs;
+            umPerStep_ = umPerStep;
+            detectorAlgo_ = detectorAlgo;
+            descriptorExtractor_ = descriptorExtractor;
+            descriptorMatcher_ = descriptorMatcher;
+        }
 
-        Mat img1 = readImage("/home/dataNolwenn/ImagesTest/Test1.tif");
-        Mat img2 = readImage("/home/dataNolwenn/ImagesTest/Test2.tif");
-
-        /* 1 - Detect keypoints */
-        MatOfKeyPoint keypoints1 = findKeypoints(img1, DETECTORALGO);
-        MatOfKeyPoint keypoints2 = findKeypoints(img2, DETECTORALGO);
-        Mat img1_Keypoints = new Mat();
-        Mat img2_Keypoints = new Mat();
-        Features2d.drawKeypoints(img1, keypoints1, img1_Keypoints);
-        Features2d.drawKeypoints(img2, keypoints2, img2_Keypoints);
-        displayImageIJ("Img1", img1_Keypoints);
-        displayImageIJ("Img2", img2_Keypoints);
-
-
-        /* 2 - Calculate descriptors */
-        Mat img1_descriptors = calculDescriptors(img1, keypoints1, DESCRIPTOREXTRACTOR);
-        Mat img2_descriptors = calculDescriptors(img2, keypoints2, DESCRIPTOREXTRACTOR);
-
-        /* 3 - Matching descriptor using FLANN matcher */
-        MatOfDMatch matcher = matchingDescriptor(img1_descriptors, img2_descriptors, DESCRIPTORMATCHER);
-        System.out.println("Number of Matches : " + matcher.rows());
-
-        Mat img1_keypoints = new Mat();
-        Mat img2_keypoints = new Mat();
-        Mat img1_img2_matches = new Mat();
-        Features2d.drawKeypoints(img1, keypoints1, img1_keypoints);
-        Features2d.drawKeypoints(img2, keypoints2, img2_keypoints);
-        Features2d.drawMatches(img1, keypoints1, img2, keypoints2, matcher, img1_img2_matches);
-//        Imgcodecs.imwrite("/home/nolwenngueguen/Téléchargements/ImagesTest/ImagesPNG/img1Keypoints.tif", img1_keypoints);
-//        Imgcodecs.imwrite("/home/nolwenngueguen/Téléchargements/ImagesTest/ImagesPNG/img2Keypoints.tif", img2_keypoints);
-//        Imgcodecs.imwrite("/home/nolwenngueguen/Téléchargements/ImagesTest/ImagesPNG/img1img2Matches.tif", img1_img2_matches);
-
-        /* 4 - Select and display Good Matches */
-        ArrayList<DMatch> good_matchesList = selectGoodMatches(matcher, keypoints1, keypoints2, UMPERMIN, UMPERPIX, INTERVALINMIN);
-        System.out.println("Number of Good Matches : " + good_matchesList.size());
-
-        Mat imgGoodMatches = drawGoodMatches(img1, img2, keypoints1, keypoints2, good_matchesList);
-//        displayImageIJ("Good Matches", imgGoodMatches);
-//        Imgcodecs.imwrite("/home/nolwenngueguen/Téléchargements/ImagesTest/ImagesPNG/goodMatches.tif", imgGoodMatches);
-
-        /* 5 - Get coordinates of GoodMatches Keypoints */
-        ArrayList<Float> img1_keypoints_xCoordinates = getGoodMatchesXCoordinates(keypoints1, good_matchesList,true);
-        ArrayList<Float> img1_keypoints_yCoordinates = getGoodMatchesYCoordinates(keypoints1, good_matchesList, true);
-
-        ArrayList<Float> img2_keypoints_xCoordinates = getGoodMatchesXCoordinates(keypoints2, good_matchesList,false);
-        ArrayList<Float> img2_keypoints_yCoordinates = getGoodMatchesYCoordinates(keypoints2, good_matchesList, false);
-
-        /* 6 - Get X and Y mean displacements */
-        float meanXdisplacement = getMeanXDisplacement(img1_keypoints_xCoordinates, img2_keypoints_xCoordinates );
-        float meanYdisplacement = getMeanYDisplacement(img1_keypoints_yCoordinates, img2_keypoints_yCoordinates );
-        System.out.println("X mean displacement : " + meanXdisplacement);
-        System.out.println("Y mean displacement : " + meanYdisplacement + "\n");
-
-        double xVariance = getXVariance(img1_keypoints_xCoordinates, img2_keypoints_xCoordinates, meanXdisplacement);
-        double yVariance = getYVariance(img1_keypoints_yCoordinates, img2_keypoints_yCoordinates, meanYdisplacement);
-        System.out.println("X variance : " + xVariance);
-        System.out.println("Y variance : " + yVariance + "\n");
-
-//        return new double[]{(double) meanXdisplacement, (double) meanYdisplacement, (double) matcher.rows(), (double) good_matchesList.size()};
+        @Override
+        public double[] call() throws Exception {
+            return DriftCalculation.driftCorrection(img1_, img2_, calibration_, intervalInMs_,
+                    umPerStep_, detectorAlgo_, descriptorExtractor_, descriptorMatcher_);
+        }
     }
 }
 
